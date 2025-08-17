@@ -29,6 +29,9 @@ struct FitnessTrackerApp: App {
         
         // 日次カロリー更新のスケジュール設定
         scheduleCalorieUpdates()
+        
+        // デフォルト種目の初期化を追加
+        ExerciseManager.initializeDefaultExercises(context: persistenceController.container.viewContext)
     }
     
     private func requestNotificationPermission() {

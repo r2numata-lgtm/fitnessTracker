@@ -128,15 +128,30 @@ struct ExerciseDetailView: View {
                     }
                 }
                 
-                Section {
-                    Button(action: {
-                        showingDeleteAlert = true
-                    }) {
-                        HStack {
-                            Image(systemName: "trash.fill")
-                            Text("この種目を削除")
+                // デバッグ情報
+                Section(header: Text("デバッグ情報")) {
+                    Text("種目名: '\(exerciseName)'")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    Text("日付: \(selectedDate, formatter: dateFormatter)")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    Text("既存記録数: \(existingWorkouts.count)")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                
+                if isEditMode {
+                    Section {
+                        Button(action: {
+                            showingDeleteAlert = true
+                        }) {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                Text("この日の記録を削除")
+                            }
+                            .foregroundColor(.red)
                         }
-                        .foregroundColor(.red)
                     }
                 }
             }
@@ -146,6 +161,7 @@ struct ExerciseDetailView: View {
                 if isEditMode {
                     loadExistingSets()
                 }
+                debugCurrentState()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -161,15 +177,29 @@ struct ExerciseDetailView: View {
                     .disabled(sets.isEmpty || sets.allSatisfy { $0.weight == 0 && $0.reps == 0 })
                 }
             }
-            .alert("種目削除の確認", isPresented: $showingDeleteAlert) {
+            .alert("記録削除の確認", isPresented: $showingDeleteAlert) {
                 Button("キャンセル", role: .cancel) { }
                 Button("削除", role: .destructive) {
-                    deleteExerciseFromDatabase()
+                    deleteWorkoutEntries()
                 }
             } message: {
-                Text("この種目を削除すると、今までのすべての記録も削除されます。この操作は取り消せません。")
+                Text("この日の\(exerciseName)の記録を削除します。この操作は取り消せません。")
             }
         }
+    }
+    
+    // デバッグ関数
+    private func debugCurrentState() {
+        print("=== ExerciseDetailView Debug ===")
+        print("種目名: '\(exerciseName)'")
+        print("選択日: \(selectedDate)")
+        print("編集モード: \(isEditMode)")
+        print("既存ワークアウト数: \(existingWorkouts.count)")
+        
+        for (index, workout) in existingWorkouts.enumerated() {
+            print("  既存[\(index)]: 種目='\(workout.exerciseName ?? "nil")', 重量=\(workout.weight), 回数=\(workout.reps)")
+        }
+        print("==============================")
     }
     
     private func calculateTotalCalories() -> Int {
@@ -193,9 +223,15 @@ struct ExerciseDetailView: View {
     }
     
     private func saveWorkout() {
+        print("=== 保存開始 ===")
+        print("種目名: '\(exerciseName)'")
+        print("セット数: \(sets.count)")
+        
         // 編集モードの場合、既存のデータを削除
         if isEditMode {
+            print("編集モード: 既存データを削除中...")
             for workout in existingWorkouts {
+                print("削除するワークアウト: 種目='\(workout.exerciseName ?? "nil")', 重量=\(workout.weight)")
                 viewContext.delete(workout)
             }
         }
@@ -204,34 +240,35 @@ struct ExerciseDetailView: View {
         for (index, set) in sets.enumerated() {
             let newWorkout = WorkoutEntry(context: viewContext)
             newWorkout.date = selectedDate
-            newWorkout.exerciseName = exerciseName
+            newWorkout.exerciseName = exerciseName // ← 重要：必ず種目名を設定
             newWorkout.weight = set.weight
             newWorkout.sets = 1 // 1セットずつ保存
             newWorkout.reps = Int16(set.reps)
             newWorkout.caloriesBurned = Double(calculateTotalCalories()) / Double(sets.count)
-            newWorkout.memo = set.memo
+            newWorkout.memo = set.memo.isEmpty ? nil : set.memo
+            
+            print("保存するワークアウト[\(index)]: 種目='\(newWorkout.exerciseName ?? "nil")', 重量=\(newWorkout.weight), 回数=\(newWorkout.reps)")
         }
         
         do {
             try viewContext.save()
+            print("保存成功")
             presentationMode.wrappedValue.dismiss()
         } catch {
             print("保存エラー: \(error)")
         }
+        print("=== 保存終了 ===")
     }
     
-    private func deleteExerciseFromDatabase() {
-        // この種目のすべての記録を削除
-        let fetchRequest: NSFetchRequest<WorkoutEntry> = WorkoutEntry.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "exerciseName == %@", exerciseName)
+    private func deleteWorkoutEntries() {
+        // この日のこの種目の記録を削除
+        for workout in existingWorkouts {
+            viewContext.delete(workout)
+        }
         
         do {
-            let workoutsToDelete = try viewContext.fetch(fetchRequest)
-            for workout in workoutsToDelete {
-                viewContext.delete(workout)
-            }
             try viewContext.save()
-            print("種目 '\(exerciseName)' のすべての記録を削除しました")
+            print("記録を削除しました: \(exerciseName)")
         } catch {
             print("削除エラー: \(error)")
         }
@@ -246,3 +283,12 @@ struct ExerciseSet {
     var reps: Int = 0
     var memo: String = ""
 }
+
+// MARK: - 日付フォーマッター
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    formatter.locale = Locale(identifier: "ja_JP")
+    return formatter
+}()

@@ -20,7 +20,10 @@ struct WorkoutView: View {
     @State private var selectedExercise = ""
     
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: false)],
+        sortDescriptors: [
+            NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true),
+            NSSortDescriptor(keyPath: \WorkoutEntry.exerciseName, ascending: true)
+        ],
         animation: .default)
     private var workouts: FetchedResults<WorkoutEntry>
     
@@ -188,12 +191,36 @@ struct WorkoutView: View {
         let startOfDay = calendar.startOfDay(for: selectedDate)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
-        let filteredWorkouts = workouts.filter { workout in
-            workout.date >= startOfDay && workout.date < endOfDay
+        print("=== デバッグ情報 ===")
+        print("選択日: \(selectedDate)")
+        print("開始時刻: \(startOfDay)")
+        print("終了時刻: \(endOfDay)")
+        print("全ワークアウト数: \(workouts.count)")
+        
+        // 全てのワークアウトの詳細を出力
+        for (index, workout) in workouts.enumerated() {
+            print("ワークアウト\(index): 種目=\(workout.exerciseName ?? "nil"), 日時=\(workout.date), 重量=\(workout.weight)kg, 回数=\(workout.reps)回")
         }
         
-        return Dictionary(grouping: filteredWorkouts) { workout in
-            workout.exerciseName ?? ""
+        let filteredWorkouts = workouts.filter { workout in
+            let isInRange = workout.date >= startOfDay && workout.date < endOfDay
+            if isInRange {
+                print("✅ マッチした記録: \(workout.exerciseName ?? "nil"), 日時: \(workout.date)")
+            }
+            return isInRange
+        }
+        
+        print("フィルタ後の記録数: \(filteredWorkouts.count)")
+        print("==================")
+        
+        // セットの順番を保持するために、日時順でソート
+        let sortedWorkouts = filteredWorkouts.sorted { $0.date < $1.date }
+        
+        // 種目名が空の場合の対処
+        return Dictionary(grouping: sortedWorkouts) { workout in
+            let exerciseName = workout.exerciseName ?? "不明な種目"
+            print("グループ化: \(exerciseName)")
+            return exerciseName
         }
     }
     
