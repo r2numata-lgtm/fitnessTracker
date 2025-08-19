@@ -123,34 +123,7 @@ class CalorieCalculator {
     }
 }
 
-// MARK: - 拡張機能
-extension Date {
-    func startOfDay() -> Date {
-        return Calendar.current.startOfDay(for: self)
-    }
-    
-    func endOfDay() -> Date {
-        var components = DateComponents()
-        components.day = 1
-        components.second = -1
-        return Calendar.current.date(byAdding: components, to: startOfDay())!
-    }
-    
-    func isToday() -> Bool {
-        return Calendar.current.isDateInToday(self)
-    }
-    
-    func daysBetween(_ date: Date) -> Int {
-        return Calendar.current.dateComponents([.day], from: self, to: date).day ?? 0
-    }
-}
 
-extension Double {
-    func rounded(toPlaces places: Int) -> Double {
-        let divisor = pow(10.0, Double(places))
-        return (self * divisor).rounded() / divisor
-    }
-}
 
 // MARK: - UserDefaults拡張
 extension UserDefaults {

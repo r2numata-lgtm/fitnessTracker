@@ -80,8 +80,16 @@ struct WorkoutView: View {
                         ForEach(Array(groupedWorkouts.keys.sorted()), id: \.self) { exerciseName in
                             if let workoutSets = groupedWorkouts[exerciseName] {
                                 Button(action: {
+                                    print("=== 種目選択デバッグ ===")
+                                    print("選択された種目名: '\(exerciseName)'")
+                                    print("workoutSets数: \(workoutSets.count)")
+                                    print("選択日: \(selectedDate)")
+                                    
                                     selectedExercise = exerciseName
+                                    print("selectedExerciseに設定: '\(selectedExercise)'")
                                     showingExerciseDetail = true
+                                    print("showingExerciseDetail = true")
+                                    print("========================")
                                 }) {
                                     GroupedWorkoutRowView(exerciseName: exerciseName, workoutSets: workoutSets)
                                 }
@@ -154,12 +162,16 @@ struct WorkoutView: View {
                 }
             }
             .sheet(isPresented: $showingExerciseDetail) {
-                ExerciseDetailView(
+                ExerciseDetailViewWrapper(
                     exerciseName: selectedExercise,
                     selectedDate: selectedDate,
                     isEditMode: true
                 )
                 .environment(\.managedObjectContext, viewContext)
+                .onDisappear {
+                    print("ExerciseDetailView が閉じられました。selectedExercise をリセット")
+                    selectedExercise = ""
+                }
             }
         }
     }
@@ -191,7 +203,7 @@ struct WorkoutView: View {
         let startOfDay = calendar.startOfDay(for: selectedDate)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
-        print("=== デバッグ情報 ===")
+        print("=== WorkoutView groupedWorkouts デバッグ ===")
         print("選択日: \(selectedDate)")
         print("開始時刻: \(startOfDay)")
         print("終了時刻: \(endOfDay)")
@@ -199,29 +211,33 @@ struct WorkoutView: View {
         
         // 全てのワークアウトの詳細を出力
         for (index, workout) in workouts.enumerated() {
-            print("ワークアウト\(index): 種目=\(workout.exerciseName ?? "nil"), 日時=\(workout.date), 重量=\(workout.weight)kg, 回数=\(workout.reps)回")
+            print("ワークアウト\(index): 種目='\(workout.exerciseName ?? "nil")', 日時=\(workout.date), 重量=\(workout.weight)kg, 回数=\(workout.reps)回")
         }
         
         let filteredWorkouts = workouts.filter { workout in
             let isInRange = workout.date >= startOfDay && workout.date < endOfDay
             if isInRange {
-                print("✅ マッチした記録: \(workout.exerciseName ?? "nil"), 日時: \(workout.date)")
+                print("✅ マッチした記録: '\(workout.exerciseName ?? "nil")', 日時: \(workout.date)")
             }
             return isInRange
         }
         
         print("フィルタ後の記録数: \(filteredWorkouts.count)")
-        print("==================")
         
         // セットの順番を保持するために、日時順でソート
         let sortedWorkouts = filteredWorkouts.sorted { $0.date < $1.date }
         
         // 種目名が空の場合の対処
-        return Dictionary(grouping: sortedWorkouts) { workout in
+        let grouped = Dictionary(grouping: sortedWorkouts) { workout in
             let exerciseName = workout.exerciseName ?? "不明な種目"
-            print("グループ化: \(exerciseName)")
+            print("グループ化: '\(exerciseName)'")
             return exerciseName
         }
+        
+        print("グループ化結果: \(grouped.keys.sorted())")
+        print("=========================================")
+        
+        return grouped
     }
     
     private func deleteWorkoutGroup(offsets: IndexSet) {
@@ -416,12 +432,7 @@ struct DayCell: View {
     }
 }
 
-// MARK: - Array Extension for Safe Index Access
-extension Array {
-    subscript(safe index: Index) -> Element? {
-        return indices.contains(index) ? self[index] : nil
-    }
-}
+
 
 // MARK: - グループ化された筋トレ行表示
 struct GroupedWorkoutRowView: View {
@@ -505,6 +516,46 @@ struct WorkoutView_Previews: PreviewProvider {
     static var previews: some View {
         WorkoutView()
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    }
+}
+
+// MARK: - ExerciseDetailView Wrapper
+struct ExerciseDetailViewWrapper: View {
+    let exerciseName: String
+    let selectedDate: Date
+    let isEditMode: Bool
+    
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        Group {
+            if !exerciseName.isEmpty {
+                ExerciseDetailView(
+                    exerciseName: exerciseName,
+                    selectedDate: selectedDate,
+                    isEditMode: isEditMode
+                )
+            } else {
+                VStack(spacing: 20) {
+                    Text("エラー: 種目が選択されていません")
+                        .foregroundColor(.red)
+                        .font(.headline)
+                    
+                    Text("exerciseName: '\(exerciseName)'")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Button("閉じる") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .padding()
+            }
+        }
     }
 }
 
