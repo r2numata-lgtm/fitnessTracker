@@ -372,12 +372,7 @@ struct ExerciseDetailView: View {
     }
 }
 
-// MARK: - ExerciseSet データ構造
-struct ExerciseSet {
-    var weight: Double = 0
-    var reps: Int = 0
-    var memo: String = ""
-}
+
 
 // MARK: - 日付フォーマッター
 private let dateFormatter: DateFormatter = {
