@@ -90,17 +90,7 @@ struct FoodView: View {
     }
 }
 
-// MARK: - 食事カテゴリ
-enum MealType: String, CaseIterable {
-    case breakfast = "朝食"
-    case lunch = "昼食"
-    case dinner = "夕食"
-    case snack = "間食"
-    
-    var displayName: String {
-        return self.rawValue
-    }
-}
+
 
 // MARK: - 食事行表示
 struct FoodRowView: View {
@@ -243,7 +233,7 @@ struct AddFoodView: View {
                 
                 Section("よく食べる食材") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 10) {
-                        ForEach(commonFoods, id: \.name) { food in
+                        ForEach(CommonFood.defaultFoods, id: \.name) { food in
                             Button(action: {
                                 foodName = food.name
                                 calories = food.calories
@@ -332,26 +322,6 @@ struct AddFoodView: View {
     }
 }
 
-// MARK: - よく食べる食材データ
-struct CommonFood {
-    let name: String
-    let calories: Double
-}
-
-let commonFoods = [
-    CommonFood(name: "白米(茶碗1杯)", calories: 252),
-    CommonFood(name: "食パン(6枚切り1枚)", calories: 177),
-    CommonFood(name: "鶏胸肉(100g)", calories: 191),
-    CommonFood(name: "鶏卵(1個)", calories: 91),
-    CommonFood(name: "牛乳(200ml)", calories: 134),
-    CommonFood(name: "バナナ(1本)", calories: 93),
-    CommonFood(name: "りんご(1個)", calories: 138),
-    CommonFood(name: "納豆(1パック)", calories: 100),
-    CommonFood(name: "豆腐(100g)", calories: 72),
-    CommonFood(name: "サラダ(100g)", calories: 20),
-    CommonFood(name: "ヨーグルト(100g)", calories: 62),
-    CommonFood(name: "アボカド(1個)", calories: 262)
-]
 
 // MARK: - カメラビュー
 struct CameraView: UIViewControllerRepresentable {
