@@ -10,22 +10,9 @@
 		8EAA36762E34D3460053A3F3 /* FitnessTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FitnessTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		8E3C26612E49ED17008D770A /* Exceptions for "FitnessTracker" folder in "FitnessTracker" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 8EAA36752E34D3460053A3F3 /* FitnessTracker */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8EAA36782E34D3460053A3F3 /* FitnessTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				8E3C26612E49ED17008D770A /* Exceptions for "FitnessTracker" folder in "FitnessTracker" target */,
-			);
 			path = FitnessTracker;
 			sourceTree = "<group>";
 		};
@@ -266,7 +253,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FitnessTracker/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "歩数や消費カロリーなどの健康データを読み取り、より正確なカロリー収支を計算するために使用します。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "筋トレの記録や体重データを健康アプリに保存し、総合的な健康管理をサポートするために使用します。";
 				INFOPLIST_KEY_NSHomeKitUsageDescription = "このアプリは健康データと連携して、より正確なカロリー収支の管理をサポートします。";
@@ -297,7 +283,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FitnessTracker/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "歩数や消費カロリーなどの健康データを読み取り、より正確なカロリー収支を計算するために使用します。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "筋トレの記録や体重データを健康アプリに保存し、総合的な健康管理をサポートするために使用します。";
 				INFOPLIST_KEY_NSHomeKitUsageDescription = "このアプリは健康データと連携して、より正確なカロリー収支の管理をサポートします。";
