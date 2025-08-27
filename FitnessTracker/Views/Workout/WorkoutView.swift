@@ -8,6 +8,13 @@ import SwiftUI
 import CoreData
 import PhotosUI
 
+// MARK: - 選択された種目の情報を保持するための構造体
+struct SelectedExercise: Identifiable {
+    let id = UUID()
+    let name: String
+    let date: Date
+}
+
 struct WorkoutView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @State private var showingAddWorkout = false
@@ -16,8 +23,9 @@ struct WorkoutView: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var dailyPhoto: Data?
     @State private var showingPhotoDetail = false
-    @State private var showingExerciseDetail = false
-    @State private var selectedExercise = ""
+    
+    // sheet(item:)を使用するために変更
+    @State private var selectedExercise: SelectedExercise?
     
     @FetchRequest(
         sortDescriptors: [
@@ -85,10 +93,13 @@ struct WorkoutView: View {
                                     print("workoutSets数: \(workoutSets.count)")
                                     print("選択日: \(selectedDate)")
                                     
-                                    selectedExercise = exerciseName
-                                    print("selectedExerciseに設定: '\(selectedExercise)'")
-                                    showingExerciseDetail = true
-                                    print("showingExerciseDetail = true")
+                                    // 種目名が有効な場合のみ SelectedExercise を作成
+                                    if !exerciseName.isEmpty && exerciseName != "不明な種目" {
+                                        selectedExercise = SelectedExercise(name: exerciseName, date: selectedDate)
+                                        print("selectedExercise作成: '\(exerciseName)'")
+                                    } else {
+                                        print("❌ 種目名が無効のため編集をスキップ: '\(exerciseName)'")
+                                    }
                                     print("========================")
                                 }) {
                                     GroupedWorkoutRowView(exerciseName: exerciseName, workoutSets: workoutSets)
@@ -147,6 +158,8 @@ struct WorkoutView: View {
             }
             .onChange(of: selectedDate) { _ in
                 loadDailyPhoto()
+                // 日付が変更されたらselectedExerciseをリセット
+                selectedExercise = nil
             }
             .onChange(of: selectedPhoto) { newItem in
                 Task {
@@ -161,17 +174,14 @@ struct WorkoutView: View {
                     showingPhotoDetail = false
                 }
             }
-            .sheet(isPresented: $showingExerciseDetail) {
-                ExerciseDetailViewWrapper(
-                    exerciseName: selectedExercise,
-                    selectedDate: selectedDate,
+            // sheet(item:)を使用して修正
+            .sheet(item: $selectedExercise) { exercise in
+                ExerciseDetailView(
+                    exerciseName: exercise.name,
+                    selectedDate: exercise.date,
                     isEditMode: true
                 )
                 .environment(\.managedObjectContext, viewContext)
-                .onDisappear {
-                    print("ExerciseDetailView が閉じられました。selectedExercise をリセット")
-                    selectedExercise = ""
-                }
             }
         }
     }
@@ -209,11 +219,6 @@ struct WorkoutView: View {
         print("終了時刻: \(endOfDay)")
         print("全ワークアウト数: \(workouts.count)")
         
-        // 全てのワークアウトの詳細を出力
-        for (index, workout) in workouts.enumerated() {
-            print("ワークアウト\(index): 種目='\(workout.exerciseName ?? "nil")', 日時=\(workout.date), 重量=\(workout.weight)kg, 回数=\(workout.reps)回")
-        }
-        
         let filteredWorkouts = workouts.filter { workout in
             let isInRange = workout.date >= startOfDay && workout.date < endOfDay
             if isInRange {
@@ -227,9 +232,13 @@ struct WorkoutView: View {
         // セットの順番を保持するために、日時順でソート
         let sortedWorkouts = filteredWorkouts.sorted { $0.date < $1.date }
         
-        // 種目名が空の場合の対処
+        // 種目名が空やnilの場合の対処を強化
         let grouped = Dictionary(grouping: sortedWorkouts) { workout in
-            let exerciseName = workout.exerciseName ?? "不明な種目"
+            let exerciseName = workout.exerciseName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if exerciseName.isEmpty {
+                print("⚠️ 警告: 種目名が空またはnil")
+                return "不明な種目"
+            }
             print("グループ化: '\(exerciseName)'")
             return exerciseName
         }
@@ -259,30 +268,7 @@ struct WorkoutView: View {
             }
         }
     }
-    
-    private func deleteWorkout(offsets: IndexSet) {
-        // 旧版の削除関数（使用されていないが残しておく）
-        withAnimation {
-            let calendar = Calendar.current
-            let startOfDay = calendar.startOfDay(for: selectedDate)
-            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-            
-            let filteredWorkouts = workouts.filter { workout in
-                workout.date >= startOfDay && workout.date < endOfDay
-            }
-            
-            offsets.map { filteredWorkouts[$0] }.forEach(viewContext.delete)
-            
-            do {
-                try viewContext.save()
-            } catch {
-                print("削除エラー: \(error)")
-            }
-        }
-    }
 }
-
-
 
 // MARK: - 単一筋トレ行表示（後方互換性のため残す）
 struct WorkoutRowView: View {
@@ -317,45 +303,3 @@ struct WorkoutView_Previews: PreviewProvider {
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }
-
-// MARK: - ExerciseDetailView Wrapper
-struct ExerciseDetailViewWrapper: View {
-    let exerciseName: String
-    let selectedDate: Date
-    let isEditMode: Bool
-    
-    @Environment(\.presentationMode) var presentationMode
-    
-    var body: some View {
-        Group {
-            if !exerciseName.isEmpty {
-                ExerciseDetailView(
-                    exerciseName: exerciseName,
-                    selectedDate: selectedDate,
-                    isEditMode: isEditMode
-                )
-            } else {
-                VStack(spacing: 20) {
-                    Text("エラー: 種目が選択されていません")
-                        .foregroundColor(.red)
-                        .font(.headline)
-                    
-                    Text("exerciseName: '\(exerciseName)'")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Button("閉じる") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                .padding()
-            }
-        }
-    }
-}
-
-
