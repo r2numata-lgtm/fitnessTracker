@@ -35,7 +35,7 @@ struct ExerciseDetailView: View {
         print("編集モード: \(isEditMode)")
         print("選択日: \(selectedDate)")
         
-        // 編集モードの場合、その日のその種目の記録を取得
+        // 編集モードの場合、その日のその種目の記録を取得（日時順でソート）
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: selectedDate)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
@@ -44,7 +44,7 @@ struct ExerciseDetailView: View {
         print("検索クエリ: exerciseName == '\(exerciseName)'")
         
         self._existingWorkouts = FetchRequest(
-            sortDescriptors: [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)],
+            sortDescriptors: [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)], // 昇順に変更
             predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(format: "exerciseName == %@", exerciseName),
                 NSPredicate(format: "date >= %@", startOfDay as NSDate),
@@ -128,7 +128,7 @@ struct ExerciseDetailView: View {
                     }
                 }
                 
-                // デバッグ情報
+                // デバッグ情報（リリース時は削除）
                 Section(header: Text("デバッグ情報")) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("種目名: '\(exerciseName)'")
@@ -158,7 +158,7 @@ struct ExerciseDetailView: View {
                     }
                 }
                 
-                // 既存データの詳細表示
+                // 既存データの詳細表示（デバッグ用）
                 if !existingWorkouts.isEmpty {
                     Section(header: Text("既存データ詳細")) {
                         ForEach(Array(existingWorkouts.enumerated()), id: \.offset) { index, workout in
@@ -246,7 +246,9 @@ struct ExerciseDetailView: View {
         }
     }
     
-    // 既存データの読み込み処理を改善
+    // MARK: - Private Methods
+    
+    // 既存データの読み込み処理を改善（順番を保持）
     private func loadExistingDataIfNeeded() {
         guard isEditMode else {
             print("編集モードではないため、データ読み込みをスキップ")
@@ -258,7 +260,7 @@ struct ExerciseDetailView: View {
         print("既存ワークアウト数: \(existingWorkouts.count)")
         
         if !existingWorkouts.isEmpty {
-            // 既存のセットデータを読み込み
+            // 既存のセットデータを読み込み（日時順で並んでいる）
             var loadedSets: [ExerciseSet] = []
             
             for (index, workout) in existingWorkouts.enumerated() {
@@ -268,7 +270,7 @@ struct ExerciseDetailView: View {
                     memo: workout.memo ?? ""
                 )
                 loadedSets.append(set)
-                print("読み込みセット[\(index)]: 重量=\(set.weight)kg, 回数=\(set.reps)回, メモ='\(set.memo)'")
+                print("読み込みセット[\(index)]: 重量=\(set.weight)kg, 回数=\(set.reps)回, メモ='\(set.memo)', 日時=\(workout.date)")
             }
             
             sets = loadedSets
@@ -306,6 +308,7 @@ struct ExerciseDetailView: View {
         return Int(metValue * bodyWeight * durationHours)
     }
     
+    // 保存処理を修正（セットの順番を保持）
     private func saveWorkout() {
         print("=== 保存開始 ===")
         print("種目名: '\(exerciseName)'")
@@ -325,10 +328,17 @@ struct ExerciseDetailView: View {
             }
         }
         
-        // 新しいデータを保存
+        // 基準日時を設定（選択日の開始時刻）
+        let calendar = Calendar.current
+        let baseDate = calendar.startOfDay(for: selectedDate)
+        
+        // 新しいデータを保存（セットごとに1秒ずつずらして順番を保持）
         for (index, set) in sets.enumerated() {
+            // セットの順番を保持するため、1秒ずつずらして保存
+            let setDate = calendar.date(byAdding: .second, value: index, to: baseDate) ?? baseDate
+            
             let newWorkout = WorkoutEntry(context: viewContext)
-            newWorkout.date = selectedDate
+            newWorkout.date = setDate // 順番を保持するための日時
             newWorkout.exerciseName = exerciseName
             newWorkout.weight = set.weight
             newWorkout.sets = 1 // 1セットずつ保存
@@ -336,7 +346,7 @@ struct ExerciseDetailView: View {
             newWorkout.caloriesBurned = Double(calculateTotalCalories()) / Double(sets.count)
             newWorkout.memo = set.memo.isEmpty ? nil : set.memo
             
-            print("保存するワークアウト[\(index)]: 種目='\(newWorkout.exerciseName ?? "nil")', 重量=\(newWorkout.weight), 回数=\(newWorkout.reps)")
+            print("保存するワークアウト[\(index)]: 種目='\(newWorkout.exerciseName ?? "nil")', 重量=\(newWorkout.weight), 回数=\(newWorkout.reps), 日時=\(setDate)")
         }
         
         do {
@@ -371,8 +381,6 @@ struct ExerciseDetailView: View {
         presentationMode.wrappedValue.dismiss()
     }
 }
-
-
 
 // MARK: - 日付フォーマッター
 private let dateFormatter: DateFormatter = {
