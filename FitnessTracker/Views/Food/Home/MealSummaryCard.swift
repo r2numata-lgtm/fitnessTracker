@@ -1,6 +1,7 @@
 //
 //  MealSummaryCard.swift
 //  FitnessTracker
+//  Views/Food/Home/MealSummaryCard.swift
 //
 //  Created by 沼田蓮二朗 on 2025/09/06.
 //

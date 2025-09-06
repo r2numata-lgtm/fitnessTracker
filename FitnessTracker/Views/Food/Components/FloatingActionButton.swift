@@ -1,6 +1,7 @@
 //
 //  FloatingActionButton.swift
 //  FitnessTracker
+//  Views/Food/Components/FloatingActionButton.swift
 //
 //  Created by 沼田蓮二朗 on 2025/09/06.
 //

@@ -1,6 +1,7 @@
 //
 //  FoodHomeView.swift
 //  FitnessTracker
+//  Views/Food/Home/FoodHomeView.swift
 //
 //  Created by 沼田蓮二朗 on 2025/09/06.
 //
@@ -144,35 +145,6 @@ private let dateFormatter: DateFormatter = {
     formatter.locale = Locale(identifier: "ja_JP")
     return formatter
 }()
-
-// MARK: - 食事記録方法選択画面（仮実装）
-struct AddFoodMethodView: View {
-    @Environment(\.presentationMode) var presentationMode
-    let selectedDate: Date
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("食事記録方法を選択")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .padding()
-                
-                Text("STEP2で実装予定")
-                    .foregroundColor(.secondary)
-            }
-            .navigationTitle("記録方法選択")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("キャンセル") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
 
 struct FoodHomeView_Previews: PreviewProvider {
     static var previews: some View {

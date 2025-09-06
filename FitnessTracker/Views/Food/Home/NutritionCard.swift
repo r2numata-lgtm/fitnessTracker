@@ -1,6 +1,7 @@
 //
 //  NutritionCard.swift
 //  FitnessTracker
+//  Views/Food/Home/NutritionCard.swift
 //
 //  Created by 沼田蓮二朗 on 2025/09/06.
 //
