@@ -28,7 +28,7 @@ struct ContentView: View {
                 }
             
             // 食事画面
-            FoodView()
+            FoodHomeView()
                 .tabItem {
                     Image(systemName: "fork.knife")
                     Text("食事")
