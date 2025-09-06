@@ -13,8 +13,8 @@ extension Exercise {
         return NSFetchRequest<Exercise>(entityName: "Exercise")
     }
 
-    @NSManaged public var name: String
-    @NSManaged public var category: String
+    @NSManaged public var name: String?
+    @NSManaged public var category: String?
     @NSManaged public var isCustom: Bool
     @NSManaged public var createdAt: Date
 
