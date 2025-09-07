@@ -395,33 +395,98 @@ struct ImagePickerView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - 写真解析結果画面（仮実装）
+// 写真解析結果画面（仮実装）
 struct PhotoResultView: View {
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.managedObjectContext) private var viewContext
     
     let result: PhotoAnalysisResult
     let selectedDate: Date
     let originalImage: UIImage?
     
+    @State private var selectedMealType: MealType = .lunch
+    @State private var editableFoods: [EditableDetectedFood] = []
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                Text("解析結果")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Text("詳細実装はSTEP4-C-3で予定")
-                    .foregroundColor(.secondary)
-                
-                Text("検出された食材: \(result.detectedFoods.count)種類")
-                    .font(.subheadline)
-                
-                ForEach(result.detectedFoods.prefix(3), id: \.id) { food in
-                    VStack(alignment: .leading) {
-                        Text(food.name)
-                            .font(.headline)
-                        Text("\(Int(food.nutrition.calories))kcal")
+            Form {
+                // 解析結果サマリー
+                Section("解析結果") {
+                    HStack {
+                        Text("検出食品数")
+                        Spacer()
+                        Text("\(result.detectedFoods.count)種類")
                             .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("信頼度")
+                        Spacer()
+                        Text("\(Int(result.overallConfidence * 100))%")
+                            .foregroundColor(confidenceColor)
+                    }
+                    
+                    HStack {
+                        Text("処理時間")
+                        Spacer()
+                        Text("\(result.processingTime, specifier: "%.1f")秒")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                // 食事タイプ選択
+                Section("食事タイプ") {
+                    Picker("食事タイプ", selection: $selectedMealType) {
+                        ForEach(MealType.allCases, id: \.self) { mealType in
+                            Text(mealType.displayName).tag(mealType)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
+                
+                // 検出された食品リスト
+                Section("検出された食品") {
+                    ForEach(editableFoods.indices, id: \.self) { index in
+                        DetectedFoodRow(
+                            food: $editableFoods[index],
+                            onWeightChanged: { updateNutrition(at: index) }
+                        )
+                    }
+                }
+                
+                // 合計栄養素
+                Section("合計栄養素") {
+                    let totalNutrition = calculateTotalNutrition()
+                    
+                    HStack {
+                        Text("カロリー")
+                        Spacer()
+                        Text("\(Int(totalNutrition.calories))kcal")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    HStack {
+                        Text("たんぱく質")
+                        Spacer()
+                        Text("\(totalNutrition.protein, specifier: "%.1f")g")
+                            .foregroundColor(.red)
+                    }
+                    
+                    HStack {
+                        Text("脂質")
+                        Spacer()
+                        Text("\(totalNutrition.fat, specifier: "%.1f")g")
+                            .foregroundColor(.orange)
+                    }
+                    
+                    HStack {
+                        Text("炭水化物")
+                        Spacer()
+                        Text("\(totalNutrition.carbohydrates, specifier: "%.1f")g")
+                            .foregroundColor(.blue)
                     }
                 }
             }
@@ -436,11 +501,146 @@ struct PhotoResultView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
-                        // TODO: Core Dataに保存
+                        saveAnalysisResult()
+                    }
+                    .disabled(editableFoods.filter { $0.isIncluded }.isEmpty)
+                }
+            }
+            .alert("結果", isPresented: $showingAlert) {
+                Button("OK") {
+                    if alertMessage.contains("成功") {
                         presentationMode.wrappedValue.dismiss()
                     }
                 }
+            } message: {
+                Text(alertMessage)
             }
+            .onAppear {
+                setupEditableFoods()
+            }
+        }
+    }
+    
+    // MARK: - Private Methods
+    
+    private var confidenceColor: Color {
+        switch result.overallConfidence {
+        case 0.8...1.0: return .green
+        case 0.6..<0.8: return .orange
+        default: return .red
+        }
+    }
+    
+    private func setupEditableFoods() {
+        editableFoods = result.detectedFoods.map { food in
+            EditableDetectedFood(
+                name: food.name,
+                estimatedWeight: food.estimatedWeight,
+                nutrition: food.nutrition,
+                confidence: food.confidence,
+                isIncluded: food.confidence > 0.5 // 信頼度50%以上をデフォルトで選択
+            )
+        }
+    }
+    
+    private func updateNutrition(at index: Int) {
+        let food = editableFoods[index]
+        let ratio = food.estimatedWeight / food.nutrition.servingSize
+        editableFoods[index].nutrition = food.nutrition.scaled(to: food.estimatedWeight)
+    }
+    
+    private func calculateTotalNutrition() -> NutritionInfo {
+        let includedFoods = editableFoods.filter { $0.isIncluded }
+        return includedFoods.reduce(NutritionInfo.empty) { total, food in
+            total + food.nutrition
+        }
+    }
+    
+    private func saveAnalysisResult() {
+        do {
+            // 写真データを取得
+            let imageData = originalImage?.jpegData(compressionQuality: 0.8)
+            
+            // 選択された食品のみ保存
+            try FoodSaveManager.savePhotoAnalysisResult(
+                context: viewContext,
+                result: result,
+                selectedFoods: editableFoods,
+                mealType: selectedMealType,
+                date: selectedDate,
+                photo: imageData
+            )
+            
+            alertMessage = "写真解析結果を保存しました！"
+            showingAlert = true
+            
+        } catch {
+            print("保存エラー: \(error)")
+            alertMessage = "保存に失敗しました: \(error.localizedDescription)"
+            showingAlert = true
+        }
+    }
+}
+
+// MARK: - 検出食品行コンポーネント
+struct DetectedFoodRow: View {
+    @Binding var food: EditableDetectedFood
+    let onWeightChanged: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // 食品名と選択状態
+            HStack {
+                Toggle("", isOn: $food.isIncluded)
+                    .labelsHidden()
+                
+                VStack(alignment: .leading) {
+                    Text(food.name)
+                        .font(.headline)
+                    
+                    Text("信頼度: \(Int(food.confidence * 100))%")
+                        .font(.caption)
+                        .foregroundColor(confidenceColor)
+                }
+                
+                Spacer()
+                
+                Text("\(Int(food.nutrition.calories))kcal")
+                    .font(.subheadline)
+                    .foregroundColor(.orange)
+            }
+            
+            // 重量調整（選択時のみ表示）
+            if food.isIncluded {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("重量: \(food.displayWeight)")
+                            .font(.subheadline)
+                        Spacer()
+                    }
+                    
+                    Slider(
+                        value: $food.estimatedWeight,
+                        in: 10...500,
+                        step: 5
+                    ) {
+                        Text("重量")
+                    } onEditingChanged: { _ in
+                        onWeightChanged()
+                    }
+                    .accentColor(.blue)
+                }
+                .padding(.leading, 32)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private var confidenceColor: Color {
+        switch food.confidence {
+        case 0.8...1.0: return .green
+        case 0.6..<0.8: return .orange
+        default: return .red
         }
     }
 }

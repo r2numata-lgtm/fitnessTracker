@@ -427,29 +427,181 @@ struct CommonFoodItems {
     }
 }
 
-// MARK: - Food Detail Input View (仮実装)
-
+// MARK: - 食材詳細入力画面（詳細実装）
 struct FoodDetailInputView: View {
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.managedObjectContext) private var viewContext
     
     let foodItem: FoodItem
     let selectedDate: Date
     
+    @State private var selectedMealType: MealType = .lunch
+    @State private var servingAmount: Double = 100.0
+    @State private var customCalories: Double
+    @State private var customProtein: Double
+    @State private var customFat: Double
+    @State private var customCarbohydrates: Double
+    @State private var isCustomMode: Bool = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
+    init(foodItem: FoodItem, selectedDate: Date) {
+        self.foodItem = foodItem
+        self.selectedDate = selectedDate
+        // 初期値を食材のデータで設定
+        self._customCalories = State(initialValue: foodItem.nutrition.calories)
+        self._customProtein = State(initialValue: foodItem.nutrition.protein)
+        self._customFat = State(initialValue: foodItem.nutrition.fat)
+        self._customCarbohydrates = State(initialValue: foodItem.nutrition.carbohydrates)
+    }
+    
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                Text("食材詳細")
-                    .font(.title)
-                    .fontWeight(.bold)
+            Form {
+                // 食材情報
+                Section("食材情報") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(foodItem.name)
+                            .font(.headline)
+                        
+                        if let category = foodItem.category {
+                            Text("カテゴリ: \(category)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let brand = foodItem.brand {
+                            Text("ブランド: \(brand)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
                 
-                Text("詳細実装はSTEP6-Bで予定")
-                    .foregroundColor(.secondary)
+                // 食事タイプ選択
+                Section("食事タイプ") {
+                    Picker("食事タイプ", selection: $selectedMealType) {
+                        ForEach(MealType.allCases, id: \.self) { mealType in
+                            Text(mealType.displayName).tag(mealType)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
                 
-                VStack(alignment: .leading) {
-                    Text(foodItem.name)
-                        .font(.headline)
-                    Text("\(Int(foodItem.nutrition.calories))kcal")
-                        .foregroundColor(.orange)
+                // 入力モード選択
+                Section("栄養情報入力") {
+                    Toggle("手動で栄養情報を入力", isOn: $isCustomMode)
+                }
+                
+                if !isCustomMode {
+                    // 分量調整モード
+                    Section("分量") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("分量")
+                                Spacer()
+                                Text("\(servingAmount, specifier: "%.0f")g")
+                                    .fontWeight(.semibold)
+                            }
+                            
+                            Slider(
+                                value: $servingAmount,
+                                in: 1...1000,
+                                step: 1
+                            ) {
+                                Text("分量")
+                            }
+                            .accentColor(.purple)
+                            
+                            HStack {
+                                Text("1g")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("1000g")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    
+                    // 計算された栄養情報
+                    Section("栄養情報（計算値）") {
+                        let adjustedNutrition = foodItem.nutrition.scaled(to: servingAmount)
+                        
+                        NutritionInfoRow(
+                            title: "カロリー",
+                            value: "\(Int(adjustedNutrition.calories))kcal",
+                            color: .orange
+                        )
+                        
+                        NutritionInfoRow(
+                            title: "たんぱく質",
+                            value: "\(Int(adjustedNutrition.protein))g",
+                            color: .red
+                        )
+                        
+                        NutritionInfoRow(
+                            title: "脂質",
+                            value: "\(Int(adjustedNutrition.fat))g",
+                            color: .orange
+                        )
+                        
+                        NutritionInfoRow(
+                            title: "炭水化物",
+                            value: "\(Int(adjustedNutrition.carbohydrates))g",
+                            color: .blue
+                        )
+                    }
+                } else {
+                    // 手動入力モード
+                    Section("栄養情報（手動入力）") {
+                        HStack {
+                            Text("カロリー")
+                            Spacer()
+                            TextField("0", value: $customCalories, format: .number)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 80)
+                            Text("kcal")
+                        }
+                        
+                        HStack {
+                            Text("たんぱく質")
+                            Spacer()
+                            TextField("0", value: $customProtein, format: .number)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 60)
+                            Text("g")
+                        }
+                        
+                        HStack {
+                            Text("脂質")
+                            Spacer()
+                            TextField("0", value: $customFat, format: .number)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 60)
+                            Text("g")
+                        }
+                        
+                        HStack {
+                            Text("炭水化物")
+                            Spacer()
+                            TextField("0", value: $customCarbohydrates, format: .number)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 60)
+                            Text("g")
+                        }
+                    }
+                    
+                    Section {
+                        Text("※ 手動入力モードでは、実際に摂取した栄養値を直接入力してください")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .navigationTitle("食材詳細")
@@ -463,15 +615,69 @@ struct FoodDetailInputView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
-                        // TODO: Core Dataに保存
-                        presentationMode.wrappedValue.dismiss()
+                        saveFoodItem()
                     }
                 }
             }
+            .alert("結果", isPresented: $showingAlert) {
+                Button("OK") {
+                    if alertMessage.contains("成功") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            } message: {
+                Text(alertMessage)
+            }
+        }
+    }
+    
+    // MARK: - Private Methods
+    
+    private func saveFoodItem() {
+        do {
+            let nutritionToSave: NutritionInfo
+            let amountToSave: Double
+            
+            if isCustomMode {
+                // 手動入力の場合
+                nutritionToSave = NutritionInfo(
+                    calories: customCalories,
+                    protein: customProtein,
+                    fat: customFat,
+                    carbohydrates: customCarbohydrates,
+                    sugar: customCarbohydrates * 0.8, // 炭水化物の80%を糖質と仮定
+                    servingSize: 100 // 手動入力の場合は100gとして記録
+                )
+                amountToSave = 100
+            } else {
+                // 分量調整の場合
+                nutritionToSave = foodItem.nutrition
+                amountToSave = servingAmount
+            }
+            
+            try FoodSaveManager.saveFoodItem(
+                context: viewContext,
+                foodItem: FoodItem(
+                    name: foodItem.name,
+                    nutrition: nutritionToSave,
+                    category: foodItem.category,
+                    brand: foodItem.brand
+                ),
+                amount: amountToSave,
+                mealType: selectedMealType,
+                date: selectedDate
+            )
+            
+            alertMessage = "食材情報を保存しました！"
+            showingAlert = true
+            
+        } catch {
+            print("保存エラー: \(error)")
+            alertMessage = "保存に失敗しました: \(error.localizedDescription)"
+            showingAlert = true
         }
     }
 }
-
 struct FoodSearchView_Previews: PreviewProvider {
     static var previews: some View {
         FoodSearchView(selectedDate: Date())

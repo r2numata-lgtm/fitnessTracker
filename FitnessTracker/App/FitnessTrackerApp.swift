@@ -30,8 +30,11 @@ struct FitnessTrackerApp: App {
         // 日次カロリー更新のスケジュール設定
         scheduleCalorieUpdates()
         
-        // デフォルト種目の初期化を追加
+        // デフォルト種目の初期化
         ExerciseManager.initializeDefaultExercises(context: persistenceController.container.viewContext)
+        
+        // 既存食事データの栄養素フィールド初期化
+        FoodSaveManager.initializeExistingData(context: persistenceController.container.viewContext)
     }
     
     private func requestNotificationPermission() {

@@ -13,15 +13,15 @@ import CoreData
 struct NutritionCard: View {
     let foods: [FoodEntry]
     
-    // 仮の栄養素計算（実際にはFoodEntryに栄養素データが必要）
+    // 実際の栄養素データから計算
     private var nutritionData: [(String, Double, String, Color)] {
-        let totalCalories = foods.reduce(0) { $0 + $1.calories }
-        // 仮の計算値（実際にはAPIや食品データベースから取得）
+        let totalNutrition = calculateTotalNutrition()
+        
         return [
-            ("たんぱく質", totalCalories * 0.15 / 4, "g", .red),
-            ("脂質", totalCalories * 0.25 / 9, "g", .orange),
-            ("炭水化物", totalCalories * 0.60 / 4, "g", .blue),
-            ("糖質", totalCalories * 0.50 / 4, "g", .purple)
+            ("たんぱく質", totalNutrition.protein, "g", .red),
+            ("脂質", totalNutrition.fat, "g", .orange),
+            ("炭水化物", totalNutrition.carbohydrates, "g", .blue),
+            ("糖質", totalNutrition.sugar, "g", .purple)
         ]
     }
     
@@ -44,6 +44,14 @@ struct NutritionCard: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(15)
+    }
+    
+    // MARK: - Private Methods
+    
+    private func calculateTotalNutrition() -> NutritionInfo {
+        return foods.reduce(NutritionInfo.empty) { total, food in
+            total + food.nutritionInfo
+        }
     }
 }
 

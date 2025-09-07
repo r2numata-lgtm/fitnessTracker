@@ -504,29 +504,137 @@ struct ManualBarcodeInputView: View {
     }
 }
 
-// MARK: - Product Detail View (仮実装)
-
+// MARK: - 商品詳細・保存画面（詳細実装）
 struct ProductDetailView: View {
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.managedObjectContext) private var viewContext
     
     let product: BarcodeProduct
     let selectedDate: Date
     
+    @State private var selectedMealType: MealType = .lunch
+    @State private var servingAmount: Double
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
+    init(product: BarcodeProduct, selectedDate: Date) {
+        self.product = product
+        self.selectedDate = selectedDate
+        // 商品のデフォルト分量を初期値に設定
+        self._servingAmount = State(initialValue: product.nutrition.servingSize)
+    }
+    
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                Text("商品詳細")
-                    .font(.title)
-                    .fontWeight(.bold)
+            Form {
+                // 商品情報
+                Section("商品情報") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(product.name)
+                            .font(.headline)
+                        
+                        if let brand = product.brand {
+                            Text(brand)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let packageSize = product.packageSize {
+                            Text("内容量: \(packageSize)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("バーコード: \(product.barcode)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
                 
-                Text("詳細実装はSTEP5-Bで予定")
-                    .foregroundColor(.secondary)
+                // 食事タイプ選択
+                Section("食事タイプ") {
+                    Picker("食事タイプ", selection: $selectedMealType) {
+                        ForEach(MealType.allCases, id: \.self) { mealType in
+                            Text(mealType.displayName).tag(mealType)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
                 
-                VStack(alignment: .leading) {
-                    Text(product.fullDisplayName)
-                        .font(.headline)
-                    Text("\(Int(product.nutrition.calories))kcal")
-                        .foregroundColor(.orange)
+                // 分量調整
+                Section("分量") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("分量")
+                            Spacer()
+                            Text("\(servingAmount, specifier: "%.0f")g")
+                                .fontWeight(.semibold)
+                        }
+                        
+                        Slider(
+                            value: $servingAmount,
+                            in: 1...1000,
+                            step: 1
+                        ) {
+                            Text("分量")
+                        }
+                        .accentColor(.orange)
+                        
+                        HStack {
+                            Text("1g")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("1000g")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                // 栄養情報（調整後）
+                Section("栄養情報") {
+                    let adjustedNutrition = product.nutrition.scaled(to: servingAmount)
+                    
+                    NutritionInfoRow(
+                        title: "カロリー",
+                        value: "\(Int(adjustedNutrition.calories))kcal",
+                        color: .orange
+                    )
+                    
+                    NutritionInfoRow(
+                        title: "たんぱく質",
+                        value: String(format: "%.1f", adjustedNutrition.protein) + "g",
+                        color: .red
+                    )
+                    
+                    NutritionInfoRow(
+                        title: "脂質",
+                        value: String(format: "%.1f", adjustedNutrition.fat) + "g",
+                        color: .orange
+                    )
+                    
+                    NutritionInfoRow(
+                        title: "炭水化物",
+                        value: String(format: "%.1f", adjustedNutrition.carbohydrates) + "g",
+                        color: .blue
+                    )
+                    
+                    if let sodium = adjustedNutrition.sodium {
+                        NutritionInfoRow(
+                            title: "ナトリウム",
+                            value: "\(Int(sodium))mg",
+                            color: .purple
+                        )
+                    }
+                }
+                
+                // 商品説明（あれば）
+                if let description = product.description {
+                    Section("商品詳細") {
+                        Text(description)
+                            .font(.subheadline)
+                    }
                 }
             }
             .navigationTitle("商品詳細")
@@ -540,15 +648,61 @@ struct ProductDetailView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
-                        // TODO: Core Dataに保存
-                        presentationMode.wrappedValue.dismiss()
+                        saveBarcodeProduct()
                     }
                 }
             }
+            .alert("結果", isPresented: $showingAlert) {
+                Button("OK") {
+                    if alertMessage.contains("成功") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            } message: {
+                Text(alertMessage)
+            }
+        }
+    }
+    
+    // MARK: - Private Methods
+    
+    private func saveBarcodeProduct() {
+        do {
+            try FoodSaveManager.saveBarcodeProduct(
+                context: viewContext,
+                product: product,
+                amount: servingAmount,
+                mealType: selectedMealType,
+                date: selectedDate
+            )
+            
+            alertMessage = "商品情報を保存しました！"
+            showingAlert = true
+            
+        } catch {
+            print("保存エラー: \(error)")
+            alertMessage = "保存に失敗しました: \(error.localizedDescription)"
+            showingAlert = true
         }
     }
 }
 
+// MARK: - 栄養情報行コンポーネント
+struct NutritionInfoRow: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .fontWeight(.semibold)
+                .foregroundColor(color)
+        }
+    }
+}
 struct BarcodeSearchView_Previews: PreviewProvider {
     static var previews: some View {
         BarcodeSearchView(selectedDate: Date())
