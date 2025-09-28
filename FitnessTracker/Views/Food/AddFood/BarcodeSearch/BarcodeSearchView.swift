@@ -129,8 +129,12 @@ struct BarcodeSearchView: View {
                     ProgressView()
                         .scaleEffect(1.2)
                     
-                    Text("商品情報を検索中...")
+                    Text("OpenFoodFactsで検索中...")
                         .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("インターネット接続を確認してください")
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 .padding()
@@ -197,60 +201,38 @@ struct BarcodeSearchView: View {
         isSearching = false
     }
     
+    // searchProduct関数を以下に置き換え
     private func searchProduct(barcode: String) {
         isSearching = true
+        foundProduct = nil
         
-        // TODO: 実際の商品データベースAPI呼び出し
-        // 現在は仮のデータを使用
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            if let mockProduct = getMockProduct(for: barcode) {
-                foundProduct = mockProduct
-                alertMessage = "商品が見つかりました"
-            } else {
-                alertMessage = "商品が見つかりませんでした\n手動で栄養情報を入力してください"
+        Task {
+            do {
+                // 統合検索を使用
+                let product = try await IntegratedSearchManager.shared.searchProductByBarcode(barcode)
+                
+                await MainActor.run {
+                    isSearching = false
+                    
+                    if let product = product {
+                        foundProduct = product
+                        alertMessage = "商品が見つかりました"
+                    } else {
+                        alertMessage = "商品が見つかりませんでした\n手動で栄養情報を入力してください"
+                    }
+                    showingAlert = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isSearching = false
+                    alertMessage = "検索中にエラーが発生しました: \(error.localizedDescription)"
+                    showingAlert = true
+                }
             }
-            isSearching = false
-            showingAlert = true
         }
     }
     
-    private func getMockProduct(for barcode: String) -> BarcodeProduct? {
-        // 仮のデータベース
-        let mockProducts = [
-            "4901085141434": BarcodeProduct(
-                barcode: "4901085141434",
-                name: "おにぎり 鮭",
-                brand: "セブンイレブン",
-                nutrition: NutritionInfo(
-                    calories: 180,
-                    protein: 4.2,
-                    fat: 1.8,
-                    carbohydrates: 35.1,
-                    sugar: 34.8,
-                    servingSize: 110
-                ),
-                category: "おにぎり・弁当",
-                packageSize: "110g"
-            ),
-            "4902102072448": BarcodeProduct(
-                barcode: "4902102072448",
-                name: "カップヌードル",
-                brand: "日清",
-                nutrition: NutritionInfo(
-                    calories: 351,
-                    protein: 10.5,
-                    fat: 14.6,
-                    carbohydrates: 44.9,
-                    sugar: 42.8,
-                    servingSize: 77
-                ),
-                category: "インスタント食品",
-                packageSize: "77g"
-            )
-        ]
-        
-        return mockProducts[barcode]
-    }
 }
 
 // MARK: - Helper Views

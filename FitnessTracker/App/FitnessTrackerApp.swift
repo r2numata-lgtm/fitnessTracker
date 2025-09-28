@@ -5,11 +5,17 @@
 //  Created by 沼田蓮二朗 on 2025/07/26.
 //
 import SwiftUI
+import FirebaseCore
+import FirebaseFirestore
 
 @main
 struct FitnessTrackerApp: App {
     let persistenceController = PersistenceController.shared
     @StateObject private var healthKitManager = HealthKitManager()
+    
+    init() {
+        FirebaseApp.configure()  // この行を追加
+    }
     
     var body: some Scene {
         WindowGroup {
@@ -35,6 +41,61 @@ struct FitnessTrackerApp: App {
         
         // 既存食事データの栄養素フィールド初期化
         FoodSaveManager.initializeExistingData(context: persistenceController.container.viewContext)
+        
+        // Firebase接続テスト（デバッグ用）
+        testFirebaseConnection()
+    }
+    
+    private func testFirebaseConnection() {
+        let db = Firestore.firestore()
+        
+        // テストドキュメントを作成
+        db.collection("test").document("connection").setData([
+            "timestamp": Date(),
+            "message": "Firebase接続成功"
+        ]) { error in
+            if let error = error {
+                print("❌ Firebase接続エラー: \(error)")
+            } else {
+                print("✅ Firebase接続成功")
+                
+                Task {
+                    await testSharedProductManager()
+                }
+            }
+        }
+    }
+    
+    private func testSharedProductManager() async {
+        do {
+            let userId = try await SharedProductManager.shared.authenticateAnonymously()
+            print("✅ 匿名認証成功: \(userId)")
+            
+            // テスト商品を作成
+            let testNutrition = NutritionInfo(
+                calories: 100,
+                protein: 2.0,
+                fat: 1.0,
+                carbohydrates: 20.0,
+                sugar: 15.0,
+                servingSize: 100
+            )
+            
+            let testProduct = SharedProduct(
+                barcode: "test123456789",
+                name: "テスト商品",
+                brand: "テストブランド",
+                nutrition: testNutrition,
+                category: "テスト",
+                contributorId: userId
+            )
+            
+            try await SharedProductManager.shared.submitProduct(testProduct)
+            print("✅ テスト商品投稿成功")
+            
+        } catch {
+            print("❌ SharedProductManagerテストエラー: \(error)")
+        }
     }
     
     private func requestNotificationPermission() {

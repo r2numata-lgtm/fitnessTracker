@@ -115,7 +115,7 @@ struct FoodSearchView: View {
                     VStack(spacing: 12) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text("検索中...")
+                        Text("ローカル食材とユーザー投稿を検索中...")
                             .foregroundColor(.secondary)
                     }
                     .padding()
@@ -223,11 +223,26 @@ struct FoodSearchView: View {
         
         isSearching = true
         
-        // TODO: 実際の食品データベースAPIを呼び出し
-        // 現在は仮のローカル検索
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            searchResults = searchInLocalDatabase(query: searchText)
-            isSearching = false
+        Task {
+            let results = await IntegratedSearchManager.shared.searchFoodByName(searchText)
+            
+            await MainActor.run {
+                // FoodSearchResultをFoodItemに変換
+                searchResults = results.compactMap { result in
+                    switch result {
+                    case .local(let food):
+                        return food
+                    case .shared(let product):
+                        return FoodItem(
+                            name: product.name,
+                            nutrition: product.nutrition,
+                            category: product.category,
+                            brand: product.brand
+                        )
+                    }
+                }
+                isSearching = false
+            }
         }
     }
     
@@ -531,28 +546,29 @@ struct FoodDetailInputView: View {
                         
                         NutritionInfoRow(
                             title: "カロリー",
-                            value: "\(Int(adjustedNutrition.calories))kcal",
+                            value: "\(safeInt(adjustedNutrition.calories))kcal",
                             color: .orange
                         )
                         
                         NutritionInfoRow(
                             title: "たんぱく質",
-                            value: "\(Int(adjustedNutrition.protein))g",
+                            value: "\(safeInt(adjustedNutrition.protein))g",
                             color: .red
                         )
                         
                         NutritionInfoRow(
                             title: "脂質",
-                            value: "\(Int(adjustedNutrition.fat))g",
+                            value: "\(safeInt(adjustedNutrition.fat))g",
                             color: .orange
                         )
                         
                         NutritionInfoRow(
                             title: "炭水化物",
-                            value: "\(Int(adjustedNutrition.carbohydrates))g",
+                            value: "\(safeInt(adjustedNutrition.carbohydrates))g",
                             color: .blue
                         )
                     }
+
                 } else {
                     // 手動入力モード
                     Section("栄養情報（手動入力）") {
@@ -631,6 +647,14 @@ struct FoodDetailInputView: View {
         }
     }
     
+    // ヘルパー関数を追加
+    private func safeInt(_ value: Double) -> Int {
+        if value.isNaN || value.isInfinite {
+            return 0
+        }
+        return Int(value.rounded())
+    }
+    
     // MARK: - Private Methods
     
     private func saveFoodItem() {
@@ -645,10 +669,26 @@ struct FoodDetailInputView: View {
                     protein: customProtein,
                     fat: customFat,
                     carbohydrates: customCarbohydrates,
-                    sugar: customCarbohydrates * 0.8, // 炭水化物の80%を糖質と仮定
-                    servingSize: 100 // 手動入力の場合は100gとして記録
+                    sugar: customCarbohydrates * 0.8,
+                    servingSize: 100
                 )
                 amountToSave = 100
+                
+                // 手動入力をユーザーDBに保存
+                Task {
+                    do {
+                        try await IntegratedSearchManager.shared.saveManualEntry(
+                            name: foodItem.name,
+                            nutrition: nutritionToSave,
+                            category: foodItem.category,
+                            brand: foodItem.brand
+                        )
+                        print("✅ 手動入力をユーザーDBに保存完了")
+                    } catch {
+                        print("⚠️ ユーザーDB保存エラー: \(error)")
+                    }
+                }
+                
             } else {
                 // 分量調整の場合
                 nutritionToSave = foodItem.nutrition

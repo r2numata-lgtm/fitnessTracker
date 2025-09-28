@@ -52,18 +52,23 @@ struct NutritionInfo: Codable, Equatable {
 extension NutritionInfo {
     /// 指定したグラム数での栄養素を計算
     func scaled(to grams: Double) -> NutritionInfo {
+        guard servingSize > 0 && !grams.isNaN && !grams.isInfinite else {
+            return self // 無効な値の場合は元の値を返す
+        }
+        
         let ratio = grams / servingSize
+        
         return NutritionInfo(
-            calories: calories * ratio,
-            protein: protein * ratio,
-            fat: fat * ratio,
-            carbohydrates: carbohydrates * ratio,
-            sugar: sugar * ratio,
+            calories: (calories * ratio).isFinite ? calories * ratio : 0,
+            protein: (protein * ratio).isFinite ? protein * ratio : 0,
+            fat: (fat * ratio).isFinite ? fat * ratio : 0,
+            carbohydrates: (carbohydrates * ratio).isFinite ? carbohydrates * ratio : 0,
+            sugar: (sugar * ratio).isFinite ? sugar * ratio : 0,
             servingSize: grams,
-            fiber: fiber.map { $0 * ratio },
-            sodium: sodium.map { $0 * ratio },
-            calcium: calcium.map { $0 * ratio },
-            iron: iron.map { $0 * ratio }
+            fiber: fiber.map { val in (val * ratio).isFinite ? val * ratio : 0 },
+            sodium: sodium.map { val in (val * ratio).isFinite ? val * ratio : 0 },
+            calcium: calcium.map { val in (val * ratio).isFinite ? val * ratio : 0 },
+            iron: iron.map { val in (val * ratio).isFinite ? val * ratio : 0 }
         )
     }
     

@@ -6,13 +6,32 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8E449DAF2E890684007B7769 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 8E449DAE2E890684007B7769 /* FirebaseAuth */; };
+		8E449DB12E890684007B7769 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 8E449DB02E890684007B7769 /* FirebaseFirestore */; };
+		8E449DB32E890684007B7769 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 8E449DB22E890684007B7769 /* FirebaseStorage */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		8EAA36762E34D3460053A3F3 /* FitnessTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FitnessTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8E6255E72E6D9F9E003F834A /* Exceptions for "FitnessTracker" folder in "FitnessTracker" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8EAA36752E34D3460053A3F3 /* FitnessTracker */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8EAA36782E34D3460053A3F3 /* FitnessTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8E6255E72E6D9F9E003F834A /* Exceptions for "FitnessTracker" folder in "FitnessTracker" target */,
+			);
 			path = FitnessTracker;
 			sourceTree = "<group>";
 		};
@@ -23,6 +42,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8E449DAF2E890684007B7769 /* FirebaseAuth in Frameworks */,
+				8E449DB12E890684007B7769 /* FirebaseFirestore in Frameworks */,
+				8E449DB32E890684007B7769 /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +87,9 @@
 			);
 			name = FitnessTracker;
 			packageProductDependencies = (
+				8E449DAE2E890684007B7769 /* FirebaseAuth */,
+				8E449DB02E890684007B7769 /* FirebaseFirestore */,
+				8E449DB22E890684007B7769 /* FirebaseStorage */,
 			);
 			productName = FitnessTracker;
 			productReference = 8EAA36762E34D3460053A3F3 /* FitnessTracker.app */;
@@ -94,6 +119,9 @@
 			);
 			mainGroup = 8EAA366D2E34D3460053A3F3;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8E449DAD2E890684007B7769 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8EAA36772E34D3460053A3F3 /* Products */;
 			projectDirPath = "";
@@ -253,6 +281,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FitnessTracker/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "歩数や消費カロリーなどの健康データを読み取り、より正確なカロリー収支を計算するために使用します。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "筋トレの記録や体重データを健康アプリに保存し、総合的な健康管理をサポートするために使用します。";
 				INFOPLIST_KEY_NSHomeKitUsageDescription = "このアプリは健康データと連携して、より正確なカロリー収支の管理をサポートします。";
@@ -283,6 +312,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FitnessTracker/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "歩数や消費カロリーなどの健康データを読み取り、より正確なカロリー収支を計算するために使用します。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "筋トレの記録や体重データを健康アプリに保存し、総合的な健康管理をサポートするために使用します。";
 				INFOPLIST_KEY_NSHomeKitUsageDescription = "このアプリは健康データと連携して、より正確なカロリー収支の管理をサポートします。";
@@ -326,6 +356,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8E449DAD2E890684007B7769 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8E449DAE2E890684007B7769 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8E449DAD2E890684007B7769 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		8E449DB02E890684007B7769 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8E449DAD2E890684007B7769 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		8E449DB22E890684007B7769 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8E449DAD2E890684007B7769 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8EAA366E2E34D3460053A3F3 /* Project object */;
 }
