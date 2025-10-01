@@ -46,18 +46,14 @@ class IntegratedSearchManager {
         return nil
     }
     
-    /// 食材名統合検索（ローカル + ユーザーDB）
+    /// 食材名統合検索（ユーザーDBのみ）
     func searchFoodByName(_ name: String) async -> [FoodSearchResult] {
         print("=== 統合食材検索開始 ===")
         print("検索名: \(name)")
         
         var results: [FoodSearchResult] = []
         
-        // 1. ローカルデータベース（既存の食材）
-        let localFoods = searchInLocalDatabase(query: name)
-        results.append(contentsOf: localFoods.map { .local($0) })
-        
-        // 2. ユーザー投稿データベース
+        // ユーザー投稿データベースのみから検索
         do {
             let sharedProducts = try await SharedProductManager.shared.searchByName(name)
             results.append(contentsOf: sharedProducts.map { .shared($0) })
@@ -65,7 +61,7 @@ class IntegratedSearchManager {
             print("⚠️ ユーザーDB検索エラー: \(error)")
         }
         
-        // 重複除去と信頼度順ソート
+        // 信頼度順ソート
         let sortedResults = results.sorted { $0.trustScore > $1.trustScore }
         
         print("✅ 統合検索結果: \(sortedResults.count)件")
@@ -103,13 +99,6 @@ class IntegratedSearchManager {
     
     // MARK: - Private Methods
     
-    private func searchInLocalDatabase(query: String) -> [FoodItem] {
-        let allFoods = CommonFoodItems.allFoods
-        return allFoods.filter { food in
-            food.name.localizedCaseInsensitiveContains(query)
-        }
-    }
-    
     private func convertToBarcodeProduct(from sharedProduct: SharedProduct) -> BarcodeProduct {
         return BarcodeProduct(
             barcode: sharedProduct.barcode ?? "",
@@ -125,6 +114,12 @@ class IntegratedSearchManager {
     
     private func saveToUserDatabase(apiProduct: BarcodeProduct, barcode: String) async {
         do {
+            // 既に同じバーコードの商品が存在するかチェック
+            if let existingProduct = try await SharedProductManager.shared.searchByBarcode(barcode) {
+                print("⚠️ 既にユーザーDBに存在するためスキップ: \(existingProduct.name)")
+                return
+            }
+            
             let userId = try await SharedProductManager.shared.authenticateAnonymously()
             
             let sharedProduct = SharedProduct(

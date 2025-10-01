@@ -498,18 +498,19 @@ struct ProductDetailView: View {
     @State private var servingAmount: Double
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var showingVerifyConfirm = false
+    @State private var showingReportSheet = false
     
     init(product: BarcodeProduct, selectedDate: Date) {
         self.product = product
         self.selectedDate = selectedDate
-        // 商品のデフォルト分量を初期値に設定
         self._servingAmount = State(initialValue: product.nutrition.servingSize)
     }
     
     var body: some View {
         NavigationView {
             Form {
-                // 商品情報
+                // 既存の商品情報セクション
                 Section("商品情報") {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(product.name)
@@ -530,92 +531,48 @@ struct ProductDetailView: View {
                         Text("バーコード: \(product.barcode)")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                    }
-                }
-                
-                // 食事タイプ選択
-                Section("食事タイプ") {
-                    Picker("食事タイプ", selection: $selectedMealType) {
-                        ForEach(MealType.allCases, id: \.self) { mealType in
-                            Text(mealType.displayName).tag(mealType)
+                        
+                        // データソース表示
+                        if let description = product.description, description.contains("投稿データ") {
+                            HStack {
+                                Image(systemName: "person.2.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                Text("ユーザー投稿データ")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.top, 4)
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
                 }
                 
-                // 分量調整
-                Section("分量") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("分量")
-                            Spacer()
-                            Text("\(servingAmount, specifier: "%.0f")g")
-                                .fontWeight(.semibold)
+                // 既存の食事タイプ、分量、栄養情報セクション...
+                
+                // 新規：データ品質管理セクション
+                if product.description?.contains("投稿データ") == true {
+                    Section("データ品質管理") {
+                        Button(action: {
+                            showingVerifyConfirm = true
+                        }) {
+                            HStack {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(.green)
+                                Text("この情報が正しいことを確認")
+                                    .foregroundColor(.primary)
+                            }
                         }
                         
-                        Slider(
-                            value: $servingAmount,
-                            in: 1...1000,
-                            step: 1
-                        ) {
-                            Text("分量")
+                        Button(action: {
+                            showingReportSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("間違いを報告")
+                                    .foregroundColor(.primary)
+                            }
                         }
-                        .accentColor(.orange)
-                        
-                        HStack {
-                            Text("1g")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text("1000g")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                // 栄養情報（調整後）
-                Section("栄養情報") {
-                    let adjustedNutrition = product.nutrition.scaled(to: servingAmount)
-                    
-                    NutritionInfoRow(
-                        title: "カロリー",
-                        value: "\(Int(adjustedNutrition.calories))kcal",
-                        color: .orange
-                    )
-                    
-                    NutritionInfoRow(
-                        title: "たんぱく質",
-                        value: String(format: "%.1f", adjustedNutrition.protein) + "g",
-                        color: .red
-                    )
-                    
-                    NutritionInfoRow(
-                        title: "脂質",
-                        value: String(format: "%.1f", adjustedNutrition.fat) + "g",
-                        color: .orange
-                    )
-                    
-                    NutritionInfoRow(
-                        title: "炭水化物",
-                        value: String(format: "%.1f", adjustedNutrition.carbohydrates) + "g",
-                        color: .blue
-                    )
-                    
-                    if let sodium = adjustedNutrition.sodium {
-                        NutritionInfoRow(
-                            title: "ナトリウム",
-                            value: "\(Int(sodium))mg",
-                            color: .purple
-                        )
-                    }
-                }
-                
-                // 商品説明（あれば）
-                if let description = product.description {
-                    Section("商品詳細") {
-                        Text(description)
-                            .font(.subheadline)
                     }
                 }
             }
@@ -643,12 +600,52 @@ struct ProductDetailView: View {
             } message: {
                 Text(alertMessage)
             }
+            .confirmationDialog("情報の確認", isPresented: $showingVerifyConfirm) {
+                Button("この情報が正しいことを確認") {
+                    verifyProduct()
+                }
+                Button("キャンセル", role: .cancel) { }
+            } message: {
+                Text("この商品情報が正確であることを確認しますか？")
+            }
+            .sheet(isPresented: $showingReportSheet) {
+                ReportProductView(productId: extractProductId(from: product))
+            }
         }
     }
     
     // MARK: - Private Methods
     
+    private func extractProductId(from product: BarcodeProduct) -> String {
+        // バーコードをIDとして使用
+        return product.barcode
+    }
+    
+    private func verifyProduct() {
+        Task {
+            do {
+                try await SharedProductManager.shared.verifyProduct(extractProductId(from: product))
+                
+                await MainActor.run {
+                    alertMessage = "確認ありがとうございます！\nデータの信頼度が向上しました。"
+                    showingAlert = true
+                }
+            } catch SharedProductError.alreadyActioned {
+                await MainActor.run {
+                    alertMessage = "既にこの商品を確認済みです"
+                    showingAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    alertMessage = "確認の送信に失敗しました"
+                    showingAlert = true
+                }
+            }
+        }
+    }
+    
     private func saveBarcodeProduct() {
+        // 既存の保存処理
         do {
             try FoodSaveManager.saveBarcodeProduct(
                 context: viewContext,
@@ -668,7 +665,6 @@ struct ProductDetailView: View {
         }
     }
 }
-
 // MARK: - 栄養情報行コンポーネント
 struct NutritionInfoRow: View {
     let title: String

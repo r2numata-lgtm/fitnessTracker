@@ -82,36 +82,92 @@ class SharedProductManager: ObservableObject {
         print("商品投稿完了: \(product.name)")
     }
     
-    /// 商品を検証（正しい情報として確認）
-    func verifyProduct(_ productId: String) async throws {
+    /// 商品を検証（ドキュメントIDで直接）
+    func verifyProduct(_ documentId: String) async throws {
         let userId = try await authenticateAnonymously()
         
         // 既に検証済みかチェック
-        let existingAction = try await checkExistingAction(productId: productId, userId: userId, actionType: .verify)
+        let existingAction = try await checkExistingAction(
+            productId: documentId,
+            userId: userId,
+            actionType: .verify
+        )
         if existingAction {
             throw SharedProductError.alreadyActioned
         }
         
         // 検証アクションを記録
         let action = ProductAction(
-            productId: productId,
+            productId: documentId,
             userId: userId,
             actionType: .verify,
             note: nil,
             timestamp: Date()
         )
         
+        let actionData: [String: Any] = [
+            "productId": action.productId,
+            "userId": action.userId,
+            "actionType": action.actionType.rawValue,
+            "note": action.note as Any,
+            "timestamp": Timestamp(date: action.timestamp)
+        ]
+        
         try await db.collection("product_actions")
             .document(UUID().uuidString)
-            .setData(from: action)
+            .setData(actionData)
         
         // 商品の検証カウントを増加
         try await db.collection("shared_products")
-            .document(productId)
+            .document(documentId)
             .updateData(["verificationCount": FieldValue.increment(Int64(1))])
         
-        print("商品検証完了: \(productId)")
+        print("商品検証完了: \(documentId)")
     }
+
+    /// 商品を報告（ドキュメントIDで直接）
+    func reportProduct(_ documentId: String, note: String?) async throws {
+        let userId = try await authenticateAnonymously()
+        
+        // 既に報告済みかチェック
+        let existingAction = try await checkExistingAction(
+            productId: documentId,
+            userId: userId,
+            actionType: .report
+        )
+        if existingAction {
+            throw SharedProductError.alreadyActioned
+        }
+        
+        // 報告アクションを記録
+        let action = ProductAction(
+            productId: documentId,
+            userId: userId,
+            actionType: .report,
+            note: note,
+            timestamp: Date()
+        )
+        
+        let actionData: [String: Any] = [
+            "productId": action.productId,
+            "userId": action.userId,
+            "actionType": action.actionType.rawValue,
+            "note": action.note as Any,
+            "timestamp": Timestamp(date: action.timestamp)
+        ]
+        
+        try await db.collection("product_actions")
+            .document(UUID().uuidString)
+            .setData(actionData)
+        
+        // 商品の報告カウントを増加
+        try await db.collection("shared_products")
+            .document(documentId)
+            .updateData(["reportCount": FieldValue.increment(Int64(1))])
+        
+        print("商品報告完了: \(documentId)")
+    }
+    
     
     // MARK: - Private Methods
     
@@ -131,6 +187,7 @@ enum SharedProductError: Error, LocalizedError {
     case alreadyActioned
     case authenticationFailed
     case networkError
+    case productNotFound  // 追加
     
     var errorDescription: String? {
         switch self {
@@ -140,6 +197,8 @@ enum SharedProductError: Error, LocalizedError {
             return "認証に失敗しました"
         case .networkError:
             return "ネットワークエラーが発生しました"
+        case .productNotFound:
+            return "商品が見つかりません"
         }
     }
 }
