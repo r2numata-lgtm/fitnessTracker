@@ -96,7 +96,7 @@ extension NutritionInfo {
             fat: 0,
             carbohydrates: 0,
             sugar: 0,
-            servingSize: 0
+            servingSize: 100  // 重要：100gをデフォルトに設定
         )
     }
 }

@@ -21,12 +21,18 @@ struct FoodSearchView: View {
     @State private var isSearching = false
     @State private var showingFoodDetail = false
     @State private var selectedFoodResult: FoodSearchResult?
+    @State private var favoriteFoods: [FoodItem] = []
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 searchBar
-                searchResultsSection
+                
+                if searchText.isEmpty {
+                    favoriteFoodsSection
+                } else {
+                    searchResultsSection
+                }
             }
             .navigationTitle("食材検索")
             .navigationBarTitleDisplayMode(.inline)
@@ -37,14 +43,18 @@ struct FoodSearchView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingFoodDetail) {
-                if let result = selectedFoodResult {
-                    FoodDetailInputView(
-                        foodResult: result,
-                        selectedDate: selectedDate
-                    )
-                    .environment(\.managedObjectContext, viewContext)
-                }
+            .sheet(item: $selectedFoodResult) { result in
+                FoodDetailInputView(
+                    foodResult: result,
+                    selectedDate: selectedDate,
+                    onSaved: {
+                        loadFavorites()
+                    }
+                )
+                .environment(\.managedObjectContext, viewContext)
+            }
+            .onAppear {
+                loadFavorites()
             }
         }
     }
@@ -82,54 +92,84 @@ struct FoodSearchView: View {
         .background(Color(.systemBackground))
     }
     
-    private var searchResultsSection: some View {
-        Group {
-            if searchText.isEmpty {
-                emptyStateView
-            } else {
-                ScrollView {
+    private var favoriteFoodsSection: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("よく使う食材")
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("\(favoriteFoods.count)品目")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                
+                if favoriteFoods.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray.opacity(0.5))
+                        
+                        Text("まだよく使う食材がありません")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("食材を検索して保存すると\nここに表示されます")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                } else {
                     LazyVStack(spacing: 12) {
-                        if isSearching {
-                            VStack(spacing: 12) {
-                                ProgressView()
-                                    .scaleEffect(1.2)
-                                Text("ユーザー投稿データベースを検索中...")
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding()
-                        } else if searchResults.isEmpty {
-                            emptySearchResultView
-                        } else {
-                            ForEach(searchResults, id: \.id) { result in
-                                FoodSearchResultRow(result: result) {
-                                    selectedFoodResult = result
-                                    showingFoodDetail = true
-                                }
+                        ForEach(favoriteFoods, id: \.id) { food in
+                            FavoriteFoodRow(food: food) {
+                                print("=== よく使う食材タップ ===")
+                                print("食材名: \(food.name)")
+                                print("カロリー: \(food.nutrition.calories)")
+                                print("servingSize: \(food.nutrition.servingSize)")
+                                
+                                selectedFoodResult = .local(food)
+                            } onDelete: {
+                                FavoriteFoodManager.shared.removeFavorite(food)
+                                loadFavorites()
                             }
                         }
                     }
-                    .padding()
+                    .padding(.horizontal)
                 }
             }
+            .padding(.vertical)
         }
     }
     
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "magnifyingglass.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.blue.opacity(0.5))
-            
-            Text("食材を検索")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("食材名を入力してユーザー投稿データベースから検索できます")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
+    private var searchResultsSection: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                if isSearching {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("ユーザー投稿データベースを検索中...")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                } else if searchResults.isEmpty {
+                    emptySearchResultView
+                } else {
+                    ForEach(searchResults, id: \.id) { result in
+                        FoodSearchResultRow(result: result) {
+                            selectedFoodResult = result
+                        }
+                    }
+                }
+            }
+            .padding()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var emptySearchResultView: some View {
@@ -156,6 +196,11 @@ struct FoodSearchView: View {
     
     // MARK: - Functions
     
+    private func loadFavorites() {
+        favoriteFoods = FavoriteFoodManager.shared.getFavorites()
+        print("✅ よく使う食材を読み込み: \(favoriteFoods.count)件")
+    }
+    
     private func performSearch() {
         guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
@@ -174,13 +219,112 @@ struct FoodSearchView: View {
     }
     
     private func createCustomFood() {
-        let customFoodResult = FoodSearchResult.local(FoodItem(
+        print("=== 手動追加開始 ===")
+        print("食材名: \(searchText)")
+        
+        let customFood = FoodItem(
             name: searchText,
-            nutrition: NutritionInfo.empty,
+            nutrition: NutritionInfo(
+                calories: 0,
+                protein: 0,
+                fat: 0,
+                carbohydrates: 0,
+                sugar: 0,
+                servingSize: 100
+            ),
             category: "カスタム"
-        ))
-        selectedFoodResult = customFoodResult
-        showingFoodDetail = true
+        )
+        
+        print("servingSize: \(customFood.nutrition.servingSize)")
+        
+        selectedFoodResult = .local(customFood)
+    }
+}
+
+// MARK: - よく使う食材行
+struct FavoriteFoodRow: View {
+    let food: FoodItem
+    let onTap: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        Button(action: {
+            print("FavoriteFoodRowタップ: \(food.name)")
+            onTap()
+        }) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(categoryColor.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Text(food.name.prefix(1))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(categoryColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(food.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    if let category = food.category {
+                        Text(category)
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(categoryColor.opacity(0.2))
+                            .foregroundColor(categoryColor)
+                            .cornerRadius(4)
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(Int(food.nutrition.calories))")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange)
+                    
+                    Text("kcal")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Button(action: {
+                    print("削除ボタンタップ: \(food.name)")
+                    onDelete()
+                }) {
+                    Image(systemName: "trash.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 16))
+                        .padding(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(.systemGray4), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var categoryColor: Color {
+        switch food.category {
+        case "肉類": return .red
+        case "魚介類": return .blue
+        case "野菜": return .green
+        case "果物": return .orange
+        case "穀物": return .brown
+        case "乳製品": return .purple
+        default: return .gray
+        }
     }
 }
 
@@ -286,10 +430,11 @@ struct FoodDetailInputView: View {
     
     let foodResult: FoodSearchResult
     let selectedDate: Date
+    let onSaved: (() -> Void)?
     
     @State private var selectedMealType: MealType = .lunch
     @State private var servingMultiplier: Double = 1.0
-    @State private var isCustomMode = false
+    @State private var isCustomMode: Bool
     @State private var customCalories: Double = 0
     @State private var customProtein: Double = 0
     @State private var customFat: Double = 0
@@ -298,6 +443,29 @@ struct FoodDetailInputView: View {
     @State private var alertMessage = ""
     @State private var showingVerifyConfirm = false
     @State private var showingReportSheet = false
+    
+    init(foodResult: FoodSearchResult, selectedDate: Date, onSaved: (() -> Void)? = nil) {
+        self.foodResult = foodResult
+        self.selectedDate = selectedDate
+        self.onSaved = onSaved
+        
+        // 手動追加（カロリーが0）の場合は手動入力モードで開始
+        let nutrition: NutritionInfo
+        switch foodResult {
+        case .local(let food):
+            nutrition = food.nutrition
+        case .shared(let product):
+            nutrition = product.nutrition
+        }
+        
+        _isCustomMode = State(initialValue: nutrition.calories == 0)
+        
+        print("=== FoodDetailInputView 初期化 ===")
+        print("食材: \(foodResult.name)")
+        print("カロリー: \(nutrition.calories)")
+        print("servingSize: \(nutrition.servingSize)")
+        print("手動入力モード: \(nutrition.calories == 0)")
+    }
     
     private var foodItem: FoodItem {
         switch foodResult {
@@ -360,7 +528,7 @@ struct FoodDetailInputView: View {
                     .pickerStyle(SegmentedPickerStyle())
                 }
                 
-                if !isCustomMode {
+                if !isCustomMode && foodItem.nutrition.servingSize > 0 {
                     Section("分量") {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -447,8 +615,10 @@ struct FoodDetailInputView: View {
                     }
                 }
                 
-                Section {
-                    Toggle("手動で栄養情報を入力", isOn: $isCustomMode)
+                if foodItem.nutrition.servingSize > 0 {
+                    Section {
+                        Toggle("手動で栄養情報を入力", isOn: $isCustomMode)
+                    }
                 }
                 
                 if isSharedProduct {
@@ -490,11 +660,13 @@ struct FoodDetailInputView: View {
                     Button("保存") {
                         saveFoodItem()
                     }
+                    .disabled(isCustomMode && customCalories == 0)
                 }
             }
             .alert("結果", isPresented: $showingAlert) {
                 Button("OK") {
                     if alertMessage.contains("成功") || alertMessage.contains("送信") {
+                        onSaved?()
                         presentationMode.wrappedValue.dismiss()
                     }
                 }
@@ -563,8 +735,10 @@ struct FoodDetailInputView: View {
         do {
             let nutritionToSave: NutritionInfo
             let amountToSave: Double
+            let foodItemToSave: FoodItem
             
-            if isCustomMode {
+            if isCustomMode || foodItem.nutrition.servingSize == 0 {
+                // 手動入力の場合
                 nutritionToSave = NutritionInfo(
                     calories: customCalories,
                     protein: customProtein,
@@ -575,37 +749,46 @@ struct FoodDetailInputView: View {
                 )
                 amountToSave = 100
                 
+                foodItemToSave = FoodItem(
+                    name: foodItem.name,
+                    nutrition: nutritionToSave,
+                    category: foodItem.category,
+                    brand: foodItem.brand
+                )
+                
+                // ユーザーDBに保存
                 Task {
                     do {
                         try await IntegratedSearchManager.shared.saveManualEntry(
-                            name: foodItem.name,
+                            name: foodItemToSave.name,
                             nutrition: nutritionToSave,
-                            category: foodItem.category,
-                            brand: foodItem.brand
+                            category: foodItemToSave.category,
+                            brand: foodItemToSave.brand
                         )
-                        print("✅ 手動入力をユーザーDBに保存完了")
+                        print("✅ 手動入力をユーザーDBに保存完了: \(foodItemToSave.name)")
                     } catch {
                         print("⚠️ ユーザーDB保存エラー: \(error)")
                     }
                 }
             } else {
+                // 通常の保存
                 let actualGrams = foodItem.nutrition.servingSize * servingMultiplier
                 nutritionToSave = foodItem.nutrition.scaled(to: actualGrams)
                 amountToSave = actualGrams
+                foodItemToSave = foodItem
             }
             
+            // Core Dataに保存
             try FoodSaveManager.saveFoodItem(
                 context: viewContext,
-                foodItem: FoodItem(
-                    name: foodItem.name,
-                    nutrition: nutritionToSave,
-                    category: foodItem.category,
-                    brand: foodItem.brand
-                ),
+                foodItem: foodItemToSave,
                 amount: amountToSave,
                 mealType: selectedMealType,
                 date: selectedDate
             )
+            
+            // よく使う食材に追加
+            FavoriteFoodManager.shared.addFavorite(foodItemToSave)
             
             alertMessage = "食材情報を保存しました！"
             showingAlert = true
