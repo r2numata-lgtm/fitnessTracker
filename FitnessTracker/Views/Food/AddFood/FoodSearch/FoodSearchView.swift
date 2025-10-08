@@ -424,6 +424,7 @@ struct FoodSearchResultRow: View {
 }
 
 // MARK: - 食材詳細入力画面
+// MARK: - 食材詳細入力画面
 struct FoodDetailInputView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.managedObjectContext) private var viewContext
@@ -736,6 +737,7 @@ struct FoodDetailInputView: View {
             let nutritionToSave: NutritionInfo
             let amountToSave: Double
             let foodItemToSave: FoodItem
+            let shouldSaveToUserDB: Bool
             
             if isCustomMode || foodItem.nutrition.servingSize == 0 {
                 // 手動入力の場合
@@ -756,29 +758,48 @@ struct FoodDetailInputView: View {
                     brand: foodItem.brand
                 )
                 
-                // ユーザーDBに保存
-                Task {
-                    do {
-                        try await IntegratedSearchManager.shared.saveManualEntry(
-                            name: foodItemToSave.name,
-                            nutrition: nutritionToSave,
-                            category: foodItemToSave.category,
-                            brand: foodItemToSave.brand
-                        )
-                        print("✅ 手動入力をユーザーDBに保存完了: \(foodItemToSave.name)")
-                    } catch {
-                        print("⚠️ ユーザーDB保存エラー: \(error)")
+                // 判定：完全に新規作成の場合のみユーザーDBに保存
+                shouldSaveToUserDB = switch foodResult {
+                case .local(let food):
+                    // ローカル（よく使う食材 or 手動追加）の場合
+                    // 元のカロリーが0 = 完全に新規作成
+                    food.nutrition.calories == 0
+                case .shared:
+                    // ユーザーDBから取得した食材を編集している場合は保存しない
+                    false
+                }
+                
+                print("=== 手動入力保存判定 ===")
+                print("食材名: \(foodItemToSave.name)")
+                print("ユーザーDBに保存: \(shouldSaveToUserDB)")
+                
+                // ユーザーDBへの保存（条件付き）
+                if shouldSaveToUserDB {
+                    Task {
+                        do {
+                            try await IntegratedSearchManager.shared.saveManualEntry(
+                                name: foodItemToSave.name,
+                                nutrition: nutritionToSave,
+                                category: foodItemToSave.category,
+                                brand: foodItemToSave.brand
+                            )
+                            print("✅ 新規食材をユーザーDBに保存: \(foodItemToSave.name)")
+                        } catch {
+                            print("⚠️ ユーザーDB保存エラー: \(error)")
+                        }
                     }
+                } else {
+                    print("ℹ️ 既存食材の調整のため、ユーザーDBへは保存しない")
                 }
             } else {
-                // 通常の保存
+                // 通常の保存（既存の栄養情報を使用）
                 let actualGrams = foodItem.nutrition.servingSize * servingMultiplier
                 nutritionToSave = foodItem.nutrition.scaled(to: actualGrams)
                 amountToSave = actualGrams
                 foodItemToSave = foodItem
             }
             
-            // Core Dataに保存
+            // Core Dataに保存（常に実行）
             try FoodSaveManager.saveFoodItem(
                 context: viewContext,
                 foodItem: foodItemToSave,
@@ -800,7 +821,6 @@ struct FoodDetailInputView: View {
         }
     }
 }
-
 // MARK: - 栄養情報表示行
 struct NutritionDisplayRow: View {
     let label: String
