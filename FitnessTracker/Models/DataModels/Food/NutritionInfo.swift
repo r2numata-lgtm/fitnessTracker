@@ -114,3 +114,25 @@ private func addOptional(_ lhs: Double?, _ rhs: Double?) -> Double? {
         return nil
     }
 }
+
+// MARK: - NutritionInfo Extensions for FoodMaster
+extension NutritionInfo {
+    /// 100g基準に正規化
+    func normalized() -> NutritionInfo {
+        guard servingSize > 0 else { return self }
+        let ratio = 100.0 / servingSize
+        
+        return NutritionInfo(
+            calories: calories * ratio,
+            protein: protein * ratio,
+            fat: fat * ratio,
+            carbohydrates: carbohydrates * ratio,
+            sugar: sugar * ratio,
+            servingSize: 100.0,
+            fiber: fiber.map { $0 * ratio },
+            sodium: sodium.map { $0 * ratio },
+            calcium: calcium.map { $0 * ratio },
+            iron: iron.map { $0 * ratio }
+        )
+    }
+}

@@ -73,11 +73,11 @@ struct AddFoodMethodView: View {
                             showingFoodSearch = true
                         }
                         
-                        // 過去の履歴から
+                        // 履歴から選択
                         FoodMethodCard(
                             icon: "clock.arrow.circlepath",
                             title: "履歴から選択",
-                            subtitle: "過去に記録した食事から選択",
+                            subtitle: "過去に記録した食材から選択",
                             color: .green
                         ) {
                             showingFoodHistory = true
@@ -117,6 +117,8 @@ struct AddFoodMethodView: View {
     }
 }
 
+// 履歴選択画面（削除 - 既に別ファイルで作成済み）
+// struct FoodHistoryView: View { ... }
 
 struct AddFoodMethodView_Previews: PreviewProvider {
     static var previews: some View {

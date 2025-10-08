@@ -34,6 +34,33 @@
         <attribute name="sodium" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="sugar" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
     </entity>
+    <entity name="FoodMaster" representedClassName="FoodMaster" syncable="YES">
+        <attribute name="calories" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="carbohydrates" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="category" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="fat" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="fiber" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="photo" optional="YES" attributeType="Binary"/>
+        <attribute name="protein" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="sodium" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="sugar" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <relationship name="records" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="FoodRecord" inverseName="foodMaster" inverseEntity="FoodRecord"/>
+    </entity>
+    <entity name="FoodRecord" representedClassName="FoodRecord" syncable="YES">
+        <attribute name="actualCalories" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="actualCarbohydrates" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="actualFat" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="actualProtein" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="actualSugar" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="mealType" attributeType="String"/>
+        <attribute name="servingMultiplier" attributeType="Double" defaultValueString="1" usesScalarValueType="YES"/>
+        <relationship name="foodMaster" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="FoodMaster" inverseName="records" inverseEntity="FoodMaster"/>
+    </entity>
     <entity name="WorkoutEntry" representedClassName="WorkoutEntry" syncable="YES">
         <attribute name="caloriesBurned" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>

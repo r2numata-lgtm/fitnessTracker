@@ -3,13 +3,13 @@
 //  FitnessTracker
 //  Models/Managers/FoodSaveManager.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
+//  Updated on 2025/09/07.
 //
 
 import Foundation
 import CoreData
 
-// MARK: - 食事保存管理
+// MARK: - 食事保存管理（FoodMaster + FoodRecord対応版）
 class FoodSaveManager {
     
     /// 単一食品をCore Dataに保存
@@ -21,17 +21,18 @@ class FoodSaveManager {
         date: Date,
         photo: Data? = nil
     ) throws {
-        let foodEntry = FoodEntry(
+        // servingMultiplierを計算（何人前か）
+        let servingMultiplier = nutrition.servingSize / 100.0
+        
+        try FoodRecordManager.saveFoodRecord(
             context: context,
             name: name,
             nutrition: nutrition,
-            mealType: mealType.rawValue,
+            servingMultiplier: servingMultiplier,
+            mealType: mealType,
             date: date,
             photo: photo
         )
-        
-        try context.save()
-        print("食事記録を保存しました: \(name)")
     }
     
     /// 複数食品をCore Dataに保存（写真解析結果など）
@@ -43,18 +44,20 @@ class FoodSaveManager {
         photo: Data? = nil
     ) throws {
         for food in foods {
-            let foodEntry = FoodEntry(
+            let servingMultiplier = food.nutrition.servingSize / 100.0
+            
+            try FoodRecordManager.saveFoodRecord(
                 context: context,
                 name: food.name,
                 nutrition: food.nutrition,
-                mealType: mealType.rawValue,
+                servingMultiplier: servingMultiplier,
+                mealType: mealType,
                 date: date,
                 photo: photo
             )
         }
         
-        try context.save()
-        print("複数の食事記録を保存しました: \(foods.count)品目")
+        print("✅ 複数の食事記録を保存しました: \(foods.count)品目")
     }
     
     /// FoodItemをCore Dataに保存
@@ -66,15 +69,16 @@ class FoodSaveManager {
         date: Date,
         photo: Data? = nil
     ) throws {
-        // 指定されたグラム数に調整
-        let adjustedNutrition = foodItem.nutrition.scaled(to: amount)
+        let servingMultiplier = amount / 100.0
         
-        try saveFoodEntry(
+        try FoodRecordManager.saveFoodRecord(
             context: context,
             name: foodItem.name,
-            nutrition: adjustedNutrition,
+            nutrition: foodItem.nutrition,
+            servingMultiplier: servingMultiplier,
             mealType: mealType,
             date: date,
+            category: foodItem.category,
             photo: photo
         )
     }
@@ -88,15 +92,16 @@ class FoodSaveManager {
         date: Date,
         photo: Data? = nil
     ) throws {
-        // 指定されたグラム数に調整
-        let adjustedNutrition = product.nutrition.scaled(to: amount)
+        let servingMultiplier = amount / 100.0
         
-        try saveFoodEntry(
+        try FoodRecordManager.saveFoodRecord(
             context: context,
-            name: product.fullDisplayName,
-            nutrition: adjustedNutrition,
+            name: product.name,
+            nutrition: product.nutrition,
+            servingMultiplier: servingMultiplier,
             mealType: mealType,
             date: date,
+            category: product.category,
             photo: photo
         )
     }
@@ -112,41 +117,53 @@ class FoodSaveManager {
     ) throws {
         let includedFoods = selectedFoods.filter { $0.isIncluded }
         
-        let foodsToSave = includedFoods.map { food in
-            (name: food.name, nutrition: food.nutrition)
+        for food in includedFoods {
+            let servingMultiplier = food.estimatedWeight / 100.0
+            
+            try FoodRecordManager.saveFoodRecord(
+                context: context,
+                name: food.name,
+                nutrition: food.nutrition,
+                servingMultiplier: servingMultiplier,
+                mealType: mealType,
+                date: date,
+                photo: photo
+            )
         }
-        
-        try saveMultipleFoodEntries(
-            context: context,
-            foods: foodsToSave,
-            mealType: mealType,
-            date: date,
-            photo: photo
-        )
     }
     
     /// 既存データの栄養素フィールドを初期化（マイグレーション用）
-    static func initializeExistingData(context: NSManagedObjectContext) {
+    /// ※ FoodEntryからFoodRecordへの移行時に使用
+    static func migrateFromFoodEntry(context: NSManagedObjectContext) {
         let fetchRequest: NSFetchRequest<FoodEntry> = FoodEntry.fetchRequest()
         
         do {
             let existingEntries = try context.fetch(fetchRequest)
             
-            var updatedCount = 0
+            var migratedCount = 0
             for entry in existingEntries {
-                if entry.protein == 0 && entry.fat == 0 && entry.carbohydrates == 0 {
-                    entry.initializeNutritionFields()
-                    updatedCount += 1
-                }
+                // FoodEntry -> FoodRecord に変換
+                let servingMultiplier = entry.servingSize / 100.0
+                
+                try? FoodRecordManager.saveFoodRecord(
+                    context: context,
+                    name: entry.foodName ?? "不明な食材",
+                    nutrition: entry.nutritionInfo,
+                    servingMultiplier: servingMultiplier,
+                    mealType: MealType(rawValue: entry.mealType ?? "昼食") ?? .lunch,
+                    date: entry.date,
+                    photo: entry.photo
+                )
+                
+                migratedCount += 1
             }
             
-            if updatedCount > 0 {
-                try context.save()
-                print("既存データの栄養素フィールドを初期化しました: \(updatedCount)件")
+            if migratedCount > 0 {
+                print("✅ FoodEntryからFoodRecordへ移行完了: \(migratedCount)件")
             }
             
         } catch {
-            print("既存データの初期化エラー: \(error)")
+            print("❌ マイグレーションエラー: \(error)")
         }
     }
     
@@ -159,40 +176,14 @@ class FoodSaveManager {
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
-        let fetchRequest: NSFetchRequest<FoodEntry> = FoodEntry.fetchRequest()
-        fetchRequest.predicate = NSPredicate(
-            format: "date >= %@ AND date < %@",
-            startOfDay as NSDate,
-            endOfDay as NSDate
+        let records = FoodRecordManager.getFoodRecords(
+            from: startOfDay,
+            to: endOfDay,
+            context: context
         )
         
-        do {
-            let entries = try context.fetch(fetchRequest)
-            return entries.reduce(NutritionInfo.empty) { total, entry in
-                total + entry.nutritionInfo
-            }
-        } catch {
-            print("栄養素合計取得エラー: \(error)")
-            return NutritionInfo.empty
-        }
-    }
-}
-
-// MARK: - EditableDetectedFood (PhotoResultViewで使用)
-
-struct EditableDetectedFood: Identifiable {
-    let id = UUID()
-    var name: String
-    var estimatedWeight: Double
-    var nutrition: NutritionInfo
-    let confidence: Double
-    var isIncluded: Bool
-    
-    var displayWeight: String {
-        if estimatedWeight >= 1000 {
-            return String(format: "%.1fkg", estimatedWeight / 1000)
-        } else {
-            return String(format: "%.0fg", estimatedWeight)
+        return records.reduce(NutritionInfo.empty) { total, record in
+            total + record.nutritionInfo
         }
     }
 }

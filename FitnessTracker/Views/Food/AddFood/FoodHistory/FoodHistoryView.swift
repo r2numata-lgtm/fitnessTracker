@@ -3,13 +3,13 @@
 //  FitnessTracker
 //  Views/Food/AddFood/FoodHistory/FoodHistoryView.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
+//  Created by 沼田蓮二朗 on 2025/09/07.
 //
 
 import SwiftUI
 import CoreData
 
-// MARK: - 食事履歴から選択画面
+// MARK: - 食事履歴画面（FoodMaster使用版）
 struct FoodHistoryView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.managedObjectContext) private var viewContext
@@ -17,34 +17,18 @@ struct FoodHistoryView: View {
     let selectedDate: Date
     
     @State private var searchText = ""
-    @State private var selectedTimeRange: TimeRange = .lastWeek
-    @State private var selectedFoodEntry: FoodEntry?
-    @State private var groupedHistory: [String: [FoodEntry]] = [:]
-    
-    @FetchRequest private var foodEntries: FetchedResults<FoodEntry>
-    
-    init(selectedDate: Date) {
-        self.selectedDate = selectedDate
-        
-        // 過去30日のデータを取得
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
-        
-        self._foodEntries = FetchRequest(
-            sortDescriptors: [NSSortDescriptor(keyPath: \FoodEntry.date, ascending: false)],
-            predicate: NSPredicate(format: "date >= %@", thirtyDaysAgo as NSDate),
-            animation: .default
-        )
-    }
+    @State private var selectedFoodMaster: FoodMaster?
+    @State private var foodMasters: [FoodMaster] = []
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                searchAndFilterSection
+                searchBar
                 
-                if filteredHistory.isEmpty {
-                    emptyHistoryView
+                if filteredMasters.isEmpty {
+                    emptyView
                 } else {
-                    historyListView
+                    masterListView
                 }
             }
             .navigationTitle("食事履歴")
@@ -52,69 +36,48 @@ struct FoodHistoryView: View {
             .toolbar {
                 toolbarContent
             }
-            .sheet(item: $selectedFoodEntry) { entry in
-                FoodHistoryDetailView(
-                    foodEntry: entry,
+            .sheet(item: $selectedFoodMaster) { master in
+                FoodMasterDetailView(
+                    foodMaster: master,
                     selectedDate: selectedDate
                 )
                 .environment(\.managedObjectContext, viewContext)
             }
             .onAppear {
-                groupHistoryData()
-            }
-            .onChange(of: selectedTimeRange) { _ in
-                groupHistoryData()
-            }
-            .onChange(of: searchText) { _ in
-                groupHistoryData()
+                loadFoodMasters()
             }
         }
     }
     
     // MARK: - View Components
     
-    private var searchAndFilterSection: some View {
-        VStack(spacing: 12) {
-            // 検索バー
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                
-                TextField("食材名で検索", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                
-                if !searchText.isEmpty {
-                    Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .padding(.horizontal)
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
             
-            // 期間フィルター
-            TimeRangeFilterView(selectedRange: $selectedTimeRange)
-                .padding(.horizontal)
+            TextField("食材名で検索", text: $searchText)
+                .textFieldStyle(PlainTextFieldStyle())
+            
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
         }
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+        .padding()
     }
     
-    private var historyListView: some View {
+    private var masterListView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                ForEach(Array(filteredHistory.keys.sorted().reversed()), id: \.self) { dateKey in
-                    if let entries = filteredHistory[dateKey], !entries.isEmpty {
-                        HistoryDateSection(
-                            dateKey: dateKey,
-                            entries: entries,
-                            onEntryTapped: { entry in
-                                selectedFoodEntry = entry
-                            }
-                        )
+            LazyVStack(spacing: 12) {
+                ForEach(filteredMasters, id: \.id) { master in
+                    FoodMasterRow(master: master) {
+                        selectedFoodMaster = master
                     }
                 }
             }
@@ -122,11 +85,21 @@ struct FoodHistoryView: View {
         }
     }
     
-    private var emptyHistoryView: some View {
-        EmptyHistoryView(
-            timeRange: selectedTimeRange,
-            hasSearchText: !searchText.isEmpty
-        )
+    private var emptyView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "fork.knife")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            
+            Text(searchText.isEmpty ? "まだ食材がありません" : "検索結果が見つかりません")
+                .font(.headline)
+            
+            Text(searchText.isEmpty ? "食事を記録すると履歴に表示されます" : "別のキーワードで検索してください")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     @ToolbarContentBuilder
@@ -138,7 +111,7 @@ struct FoodHistoryView: View {
         }
         
         ToolbarItem(placement: .navigationBarTrailing) {
-            Text("\(totalHistoryCount)件")
+            Text("\(foodMasters.count)種類")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -146,58 +119,22 @@ struct FoodHistoryView: View {
     
     // MARK: - Computed Properties
     
-    private var filteredHistory: [String: [FoodEntry]] {
-        guard !searchText.isEmpty else { return groupedHistory }
-        
-        return groupedHistory.mapValues { entries in
-            entries.filter { entry in
-                entry.foodName?.localizedCaseInsensitiveContains(searchText) ?? false
+    private var filteredMasters: [FoodMaster] {
+        if searchText.isEmpty {
+            return foodMasters
+        } else {
+            return foodMasters.filter { master in
+                master.name.localizedCaseInsensitiveContains(searchText)
             }
         }
-    }
-    
-    private var totalHistoryCount: Int {
-        filteredHistory.values.reduce(0) { $0 + $1.count }
     }
     
     // MARK: - Functions
     
-    private func groupHistoryData() {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        // 期間フィルタリング
-        let filteredEntries = foodEntries.filter { entry in
-            switch selectedTimeRange {
-            case .today:
-                return calendar.isDateInToday(entry.date)
-            case .lastWeek:
-                let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
-                return entry.date >= weekAgo
-            case .lastMonth:
-                let monthAgo = calendar.date(byAdding: .month, value: -1, to: now)!
-                return entry.date >= monthAgo
-            case .all:
-                return true
-            }
-        }
-        
-        // 日付でグループ化
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        
-        groupedHistory = Dictionary(grouping: filteredEntries) { entry in
-            formatter.string(from: entry.date)
-        }
+    private func loadFoodMasters() {
+        foodMasters = FoodMasterManager.getAllFoodMasters(context: viewContext)
+        print("✅ 食材マスタ読み込み: \(foodMasters.count)種類")
     }
-}
-
-// MARK: - 時間範囲列挙
-enum TimeRange: String, CaseIterable {
-    case today = "今日"
-    case lastWeek = "過去7日"
-    case lastMonth = "過去30日"
-    case all = "すべて"
 }
 
 #Preview {

@@ -40,7 +40,7 @@ struct FitnessTrackerApp: App {
         ExerciseManager.initializeDefaultExercises(context: persistenceController.container.viewContext)
         
         // 既存食事データの栄養素フィールド初期化
-        FoodSaveManager.initializeExistingData(context: persistenceController.container.viewContext)
+        //FoodSaveManager.initializeExistingData(context: persistenceController.container.viewContext)
         
         // Firebase接続テスト（デバッグ用）
         testFirebaseConnection()
