@@ -179,9 +179,6 @@ struct FoodDetailInputView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                Text("(\(Int(foodItem.nutrition.servingSize * servingMultiplier))g相当)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }

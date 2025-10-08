@@ -118,44 +118,6 @@ struct AddFoodMethodView: View {
 }
 
 
-
-
-// 履歴選択画面
-struct FoodHistoryView: View {
-    @Environment(\.presentationMode) var presentationMode
-    let selectedDate: Date
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 80))
-                    .foregroundColor(.green)
-                
-                Text("履歴から選択")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Text("STEP3で実装予定")
-                    .foregroundColor(.secondary)
-                
-                Text("過去に記録した食事から\n簡単に選択できます")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-            }
-            .navigationTitle("食事履歴")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("キャンセル") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
 struct AddFoodMethodView_Previews: PreviewProvider {
     static var previews: some View {
         AddFoodMethodView(selectedDate: Date())
