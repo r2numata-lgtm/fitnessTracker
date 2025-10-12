@@ -13,9 +13,8 @@ struct FoodHomeView: View {
     @State private var showingAddFoodMethod = false
     @State private var showingMealDetail = false
     @State private var selectedMealType = ""
-    @State private var showingAllFoodsList = false  // ← 追加
+    @State private var showingAllFoodsList = false
     
-    // FoodEntry → FoodRecord に変更
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \FoodRecord.date, ascending: false)],
         animation: .default)
@@ -72,24 +71,26 @@ struct FoodHomeView: View {
                         VStack(spacing: 12) {
                             // 摂取カロリー表示
                             CalorieIntakeCard(foods: Array(filteredFoodsForDay))
-                                .onTapGesture {  // ← 追加：タップで全食事リスト表示
+                                .onTapGesture {
                                     showingAllFoodsList = true
                                 }
                             
-                            // 栄養素表示
-                            NutritionCard(foods: Array(filteredFoodsForDay))
-                                .onTapGesture {  // ← 追加：タップで全食事リスト表示
+                            // 栄養素表示（すべて表示ボタン追加）
+                            NutritionCard(
+                                foods: Array(filteredFoodsForDay),
+                                onShowAll: {  // ← 追加
                                     showingAllFoodsList = true
                                 }
+                            )
                             
                             // 今日の食事カロリーまとめ
                             MealSummaryCard(
                                 foods: Array(filteredFoodsForDay),
-                                onMealTapped: { mealType in
+                                onMealTapped: { mealType in  // ← 修正
                                     selectedMealType = mealType
                                     showingMealDetail = true
                                 },
-                                onCardTapped: {  // ← 追加
+                                onCardTapped: {
                                     showingAllFoodsList = true
                                 }
                             )
@@ -128,7 +129,6 @@ struct FoodHomeView: View {
                 )
                 .environment(\.managedObjectContext, viewContext)
             }
-            // ← 追加：全食事リスト表示
             .sheet(isPresented: $showingAllFoodsList) {
                 AllFoodsListView(
                     selectedDate: selectedDate,

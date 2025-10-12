@@ -11,9 +11,8 @@ import CoreData
 struct MealSummaryCard: View {
     let foods: [FoodRecord]
     let onMealTapped: (String) -> Void
-    let onCardTapped: (() -> Void)?  // ← 追加：カード全体タップ用
+    let onCardTapped: (() -> Void)?
     
-    // ← 修正：イニシャライザーを追加
     init(foods: [FoodRecord],
          onMealTapped: @escaping (String) -> Void,
          onCardTapped: (() -> Void)? = nil) {
@@ -41,7 +40,6 @@ struct MealSummaryCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            // ← 修正：ヘッダーをタップ可能に
             HStack {
                 Text("今日の食事")
                     .font(.headline)
@@ -69,7 +67,7 @@ struct MealSummaryCard: View {
                         color: meal.2,
                         foods: foods.filter { $0.mealType == meal.0 }
                     ) {
-                        onMealTapped(meal.0)
+                        onMealTapped(meal.0)  // ← タップでその食事タイプの記録を表示
                     }
                 }
             }
@@ -80,7 +78,7 @@ struct MealSummaryCard: View {
     }
 }
 
-// MARK: - 食事サマリーアイテム（変更なし）
+// MARK: - 食事サマリーアイテム
 struct MealSummaryItem: View {
     let mealType: String
     let calories: Double

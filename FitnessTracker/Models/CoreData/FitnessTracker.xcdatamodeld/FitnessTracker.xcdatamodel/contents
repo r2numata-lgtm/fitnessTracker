@@ -33,7 +33,7 @@
         <attribute name="protein" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="sodium" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="sugar" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
-        <relationship name="records" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="FoodRecord" inverseName="foodMaster" inverseEntity="FoodRecord"/>
+        <relationship name="records" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="FoodRecord" inverseName="foodMaster" inverseEntity="FoodRecord"/>
     </entity>
     <entity name="FoodRecord" representedClassName="FoodRecord" syncable="YES">
         <attribute name="actualCalories" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>

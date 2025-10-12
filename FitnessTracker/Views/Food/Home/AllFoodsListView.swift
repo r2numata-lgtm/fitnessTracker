@@ -57,7 +57,7 @@ struct AllFoodsListView: View {
             }
             .navigationTitle(dateTitle)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {  // ← 1つのtoolbarブロックにまとめる
+            .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("閉じる") {
                         presentationMode.wrappedValue.dismiss()
@@ -70,10 +70,12 @@ struct AllFoodsListView: View {
             }
             .sheet(isPresented: $showingFoodDetail) {
                 if let food = selectedFood {
-                    print("=== 詳細シート表示 ===")
-                    print("食材名: \(food.foodName)")
                     FoodRecordDetailSheet(food: food)
                         .environment(\.managedObjectContext, viewContext)
+                        .onAppear {
+                            print("=== 詳細シート表示 ===")
+                            print("食材名: \(food.foodName)")
+                        }
                 }
             }
         }
@@ -165,17 +167,24 @@ struct AllFoodsListView: View {
     // MARK: - Functions
     
     private func deleteFood(offsets: IndexSet, from mealFoods: [FoodRecord]) {
-        withAnimation {
-            offsets.map { mealFoods[$0] }.forEach(viewContext.delete)
+        for index in offsets {
+            let foodToDelete = mealFoods[index]
+            print("=== 食事記録を削除: \(foodToDelete.objectID) ===")
             
-            do {
-                try viewContext.save()
-            } catch {
-                print("削除エラー: \(error)")
-            }
+            // FoodRecord を削除（FoodMaster は何もしない）
+            viewContext.delete(foodToDelete)
+        }
+        
+        do {
+            try viewContext.save()
+            print("✅ 削除成功")
+        } catch {
+            print("❌ 削除エラー: \(error)")
+            viewContext.rollback()
         }
     }
 }
+
 // MARK: - 食事行コンポーネント
 struct FoodListRow: View {
     let food: FoodRecord
@@ -222,7 +231,7 @@ struct FoodListRow: View {
                 .foregroundColor(.orange)
         }
         .padding(.vertical, 4)
-        .contentShape(Rectangle())  // ← 追加：タップ可能領域を拡大
+        .contentShape(Rectangle())
     }
 }
 
@@ -345,13 +354,18 @@ struct FoodRecordDetailSheet: View {
     }
     
     private func deleteFood() {
+        print("=== 食事記録を削除: \(food.objectID) ===")
+        
+        // FoodRecord を削除（FoodMaster は何もしない）
         viewContext.delete(food)
         
         do {
             try viewContext.save()
+            print("✅ 削除成功")
             presentationMode.wrappedValue.dismiss()
         } catch {
-            print("削除エラー: \(error)")
+            print("❌ 削除エラー: \(error)")
+            viewContext.rollback()
         }
     }
 }

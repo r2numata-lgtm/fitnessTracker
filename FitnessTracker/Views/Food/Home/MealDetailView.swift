@@ -7,14 +7,17 @@
 import SwiftUI
 import CoreData
 
-// MARK: - 食事詳細画面
+// MARK: - 食事タイプ別詳細画面
 struct MealDetailView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
     
     let mealType: String
     let selectedDate: Date
-    let foods: [FoodRecord]  // FoodEntry → FoodRecord
+    let foods: [FoodRecord]
+    
+    @State private var selectedFood: FoodRecord?
+    @State private var showingFoodDetail = false
     
     var body: some View {
         NavigationView {
@@ -22,14 +25,38 @@ struct MealDetailView: View {
                 if foods.isEmpty {
                     emptyStateView
                 } else {
-                    foodListSection
-                    nutritionSummarySection
+                    ForEach(foods, id: \.id) { food in
+                        Button(action: {
+                            selectedFood = food
+                            showingFoodDetail = true
+                        }) {
+                            FoodListRow(food: food)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .onDelete(perform: deleteFood)
+                    
+                    totalNutritionSection
                 }
             }
-            .navigationTitle(mealType)
+            .navigationTitle("\(mealType)の記録")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                toolbarContent
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("閉じる") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    EditButton()
+                }
+            }
+            .sheet(isPresented: $showingFoodDetail) {
+                if let food = selectedFood {
+                    FoodRecordDetailSheet(food: food)
+                        .environment(\.managedObjectContext, viewContext)
+                }
             }
         }
     }
@@ -42,7 +69,7 @@ struct MealDetailView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.gray)
             
-            Text("まだ食事が記録されていません")
+            Text("まだ\(mealType)の記録がありません")
                 .font(.headline)
                 .foregroundColor(.secondary)
         }
@@ -50,52 +77,46 @@ struct MealDetailView: View {
         .listRowBackground(Color.clear)
     }
     
-    private var foodListSection: some View {
-        Section("食事内容") {
-            ForEach(foods, id: \.id) { food in
-                FoodRecordDetailRow(food: food)
+    private var totalNutritionSection: some View {
+        Section("合計") {
+            HStack {
+                Text("カロリー")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.orange)
+                Text("kcal")
+                    .foregroundColor(.secondary)
             }
-            .onDelete(perform: deleteFood)
-        }
-    }
-    
-    private var nutritionSummarySection: some View {
-        Section("合計栄養素") {
-            NutritionSummaryRow(
-                label: "カロリー",
-                value: foods.reduce(0) { $0 + $1.actualCalories },
-                unit: "kcal",
-                color: .orange
-            )
             
-            NutritionSummaryRow(
-                label: "たんぱく質",
-                value: foods.reduce(0) { $0 + $1.actualProtein },
-                unit: "g",
-                color: .red
-            )
+            HStack {
+                Text("たんぱく質")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualProtein }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.red)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
             
-            NutritionSummaryRow(
-                label: "脂質",
-                value: foods.reduce(0) { $0 + $1.actualFat },
-                unit: "g",
-                color: .orange
-            )
+            HStack {
+                Text("脂質")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualFat }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.orange)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
             
-            NutritionSummaryRow(
-                label: "炭水化物",
-                value: foods.reduce(0) { $0 + $1.actualCarbohydrates },
-                unit: "g",
-                color: .blue
-            )
-        }
-    }
-    
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button("閉じる") {
-                presentationMode.wrappedValue.dismiss()
+            HStack {
+                Text("炭水化物")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCarbohydrates }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                Text("g")
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -103,87 +124,16 @@ struct MealDetailView: View {
     // MARK: - Functions
     
     private func deleteFood(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { foods[$0] }.forEach(viewContext.delete)
-            
-            do {
-                try viewContext.save()
-            } catch {
-                print("削除エラー: \(error)")
-            }
+        for index in offsets {
+            let food = foods[index]
+            viewContext.delete(food)
         }
-    }
-}
-
-// MARK: - Supporting Views
-
-struct FoodRecordDetailRow: View {
-    let food: FoodRecord
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // 食材アイコン
-            if let photoData = food.photo,
-               let uiImage = UIImage(data: photoData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 50, height: 50)
-                    
-                    Image(systemName: "fork.knife")
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // 食材情報
-            VStack(alignment: .leading, spacing: 4) {
-                Text(food.foodName)
-                    .font(.headline)
-                
-                Text("\(food.servingMultiplier, specifier: "%.1f")人前")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            // カロリー
-            Text("\(Int(food.actualCalories))kcal")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.orange)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct NutritionSummaryRow: View {
-    let label: String
-    let value: Double
-    let unit: String
-    let color: Color
-    
-    var body: some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-            
-            Spacer()
-            
-            Text("\(Int(value))")
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(color)
-            
-            Text(unit)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        
+        do {
+            try viewContext.save()
+        } catch {
+            print("削除エラー: \(error)")
+            viewContext.rollback()
         }
     }
 }
