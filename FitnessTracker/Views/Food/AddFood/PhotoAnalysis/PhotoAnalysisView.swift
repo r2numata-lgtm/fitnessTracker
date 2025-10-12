@@ -542,10 +542,8 @@ struct PhotoResultView: View {
     
     private func saveAnalysisResult() {
         do {
-            // 写真データを取得
             let imageData = originalImage?.jpegData(compressionQuality: 0.8)
             
-            // 選択された食品のみ保存
             try FoodSaveManager.savePhotoAnalysisResult(
                 context: viewContext,
                 result: result,
@@ -555,9 +553,11 @@ struct PhotoResultView: View {
                 photo: imageData
             )
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        presentationMode.wrappedValue.dismiss()
-                    }
+            // Core Dataを即座に保存
+            try viewContext.save()
+            
+            // 即座に画面を閉じる
+            presentationMode.wrappedValue.dismiss()
             
         } catch {
             print("保存エラー: \(error)")

@@ -14,11 +14,14 @@ struct FoodHomeView: View {
     @State private var showingMealDetail = false
     @State private var selectedMealType = ""
     @State private var showingAllFoodsList = false
-    @State private var refreshID = UUID()  // ← 追加: リフレッシュ用ID
     
+    // データ変更を即座に反映するためのトリガー
+    @State private var refreshTrigger = UUID()
+    
+    // Core Dataの変更を監視
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \FoodRecord.date, ascending: false)],
-        animation: .default)
+        animation: .none)
     private var foods: FetchedResults<FoodRecord>
     
     var body: some View {
@@ -72,24 +75,24 @@ struct FoodHomeView: View {
                         VStack(spacing: 12) {
                             // 摂取カロリー表示
                             CalorieIntakeCard(foods: Array(filteredFoodsForDay))
-                                .id(refreshID)
+                                .id(refreshTrigger)
                                 .onTapGesture {
                                     showingAllFoodsList = true
                                 }
                             
-                            // 栄養素表示（すべて表示ボタン追加）
+                            // 栄養素表示
                             NutritionCard(
                                 foods: Array(filteredFoodsForDay),
-                                onShowAll: {  // ← 追加
+                                onShowAll: {
                                     showingAllFoodsList = true
                                 }
                             )
-                            .id(refreshID)
+                            .id(refreshTrigger)
                             
                             // 今日の食事カロリーまとめ
                             MealSummaryCard(
                                 foods: Array(filteredFoodsForDay),
-                                onMealTapped: { mealType in  // ← 修正
+                                onMealTapped: { mealType in
                                     selectedMealType = mealType
                                     showingMealDetail = true
                                 },
@@ -97,7 +100,7 @@ struct FoodHomeView: View {
                                     showingAllFoodsList = true
                                 }
                             )
-                            .id(refreshID)
+                            .id(refreshTrigger)
                             
                             // 空きスペース（フローティングボタンのため）
                             Spacer(minLength: 80)
@@ -125,22 +128,11 @@ struct FoodHomeView: View {
                 AddFoodMethodView(selectedDate: selectedDate)
                     .environment(\.managedObjectContext, viewContext)
             }
-            .onChange(of: showingAddFoodMethod) { isShowing in
-                            // ← 追加: シートが閉じたらリフレッシュ
-                            if !isShowing {
-                                refreshID = UUID()
-                            }
-                        }
-                        .onChange(of: foods.count) { _ in
-                            // ← 追加: データ変更を検知してリフレッシュ
-                            refreshID = UUID()
-                        }
             .sheet(isPresented: $showingMealDetail) {
-                let mealFoods = filteredFoodsForMeal(selectedMealType)
                 MealDetailView(
                     mealType: selectedMealType,
                     selectedDate: selectedDate,
-                    foods: mealFoods
+                    foods: filteredFoodsForMeal(selectedMealType)
                 )
                 .environment(\.managedObjectContext, viewContext)
             }
@@ -150,6 +142,24 @@ struct FoodHomeView: View {
                     foods: Array(filteredFoodsForDay)
                 )
                 .environment(\.managedObjectContext, viewContext)
+            }
+            .onChange(of: showingAddFoodMethod) { isShowing in
+                if !isShowing {
+                    refreshTrigger = UUID()
+                }
+            }
+            .onChange(of: showingMealDetail) { isShowing in
+                if !isShowing {
+                    refreshTrigger = UUID()
+                }
+            }
+            .onChange(of: showingAllFoodsList) { isShowing in
+                if !isShowing {
+                    refreshTrigger = UUID()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: viewContext)) { _ in
+                refreshTrigger = UUID()
             }
         }
     }

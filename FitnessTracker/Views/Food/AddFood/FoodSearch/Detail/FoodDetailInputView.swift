@@ -383,9 +383,8 @@ struct FoodDetailInputView: View {
                                 category: foodItem.category,
                                 brand: foodItem.brand
                             )
-                            print("✅ 新規食材をユーザーDBに保存: \(foodNameToSave)")
                         } catch {
-                            print("⚠️ ユーザーDB保存エラー: \(error)")
+                            print("ユーザーDB保存エラー: \(error)")
                         }
                     }
                 }
@@ -411,12 +410,13 @@ struct FoodDetailInputView: View {
                 date: selectedDate
             )
             
+            // Core Dataを即座に保存
+            try viewContext.save()
+            
             FavoriteFoodManager.shared.addFavorite(foodItemToSave)
             
-            // 変更: アラートを表示せず、0.5秒後に閉じる
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                presentationMode.wrappedValue.dismiss()
-            }
+            // 即座に画面を閉じる
+            presentationMode.wrappedValue.dismiss()
             
         } catch {
             print("保存エラー: \(error)")

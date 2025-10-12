@@ -252,10 +252,11 @@ struct ProductDetailView: View {
                 date: selectedDate
             )
             
-            // 変更: アラートを表示せず、0.5秒後に閉じる
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                presentationMode.wrappedValue.dismiss()
-            }
+            // Core Dataを即座に保存
+            try viewContext.save()
+            
+            // 即座に画面を閉じる
+            presentationMode.wrappedValue.dismiss()
             
         } catch {
             print("保存エラー: \(error)")
