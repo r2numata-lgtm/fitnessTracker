@@ -3,18 +3,16 @@
 //  FitnessTracker
 //  Views/Food/Home/CalorieIntakeCard.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import SwiftUI
 import CoreData
 
 // MARK: - 摂取カロリーカード
 struct CalorieIntakeCard: View {
-    let foods: [FoodEntry]
+    let foods: [FoodRecord]  // FoodEntry → FoodRecord
     
     private var totalCalories: Double {
-        foods.reduce(0) { $0 + $1.calories }
+        foods.reduce(0) { $0 + $1.actualCalories }  // calories → actualCalories
     }
     
     var body: some View {
@@ -36,4 +34,10 @@ struct CalorieIntakeCard: View {
         .background(Color(.systemGray6))
         .cornerRadius(15)
     }
+}
+
+#Preview {
+    let context = PersistenceController.preview.container.viewContext
+    return CalorieIntakeCard(foods: [])
+        .environment(\.managedObjectContext, context)
 }

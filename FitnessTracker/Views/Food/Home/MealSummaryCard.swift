@@ -3,21 +3,20 @@
 //  FitnessTracker
 //  Views/Food/Home/MealSummaryCard.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import SwiftUI
 import CoreData
 
 // MARK: - 食事カロリーまとめカード
 struct MealSummaryCard: View {
-    let foods: [FoodEntry]
+    let foods: [FoodRecord]  // FoodEntry → FoodRecord
     let onMealTapped: (String) -> Void
     
     private var mealData: [(String, Double, Color)] {
         let mealTypes = ["朝食", "昼食", "夕食", "間食"]
         return mealTypes.map { mealType in
-            let calories = foods.filter { $0.mealType == mealType }.reduce(0) { $0 + $1.calories }
+            let calories = foods.filter { $0.mealType == mealType }
+                .reduce(0) { $0 + $1.actualCalories }  // calories → actualCalories
             let color: Color = {
                 switch mealType {
                 case "朝食": return .orange
@@ -59,7 +58,7 @@ struct MealSummaryItem: View {
     let mealType: String
     let calories: Double
     let color: Color
-    let foods: [FoodEntry]
+    let foods: [FoodRecord]  // FoodEntry → FoodRecord
     let onTap: () -> Void
     
     var body: some View {
@@ -107,4 +106,9 @@ struct MealSummaryItem: View {
         default: return "heart.fill"
         }
     }
+}
+
+#Preview {
+    MealSummaryCard(foods: [], onMealTapped: { _ in })
+        .padding()
 }

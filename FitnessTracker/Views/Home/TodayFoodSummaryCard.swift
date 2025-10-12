@@ -2,18 +2,16 @@
 //  TodayFoodSummaryCard.swift
 //  FitnessTracker
 //
-//  Created by 沼田蓮二朗 on 2025/08/19.
-//
 
 import SwiftUI
 
 // MARK: - 今日の食事サマリーカード
 struct TodayFoodSummaryCard: View {
-    let foods: [FoodEntry]
+    let foods: [FoodRecord]  // FoodEntry → FoodRecord
     
-    private var groupedFoods: [String: [FoodEntry]] {
+    private var groupedFoods: [String: [FoodRecord]] {
         Dictionary(grouping: foods) { food in
-            food.mealType ?? "その他"
+            food.mealType
         }
     }
     
@@ -36,7 +34,7 @@ struct TodayFoodSummaryCard: View {
                 Spacer()
                 Text("\(foods.count)品目")
                     .foregroundColor(.secondary)
-                Text("\(Int(foods.reduce(0) { $0 + $1.calories }))kcal")
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))kcal")  // calories → actualCalories
                     .foregroundColor(.green)
                     .fontWeight(.semibold)
             }
@@ -50,7 +48,7 @@ struct TodayFoodSummaryCard: View {
 // MARK: - 食事サマリー行
 struct FoodSummaryRow: View {
     let mealType: String
-    let foods: [FoodEntry]
+    let foods: [FoodRecord]  // FoodEntry → FoodRecord
     
     var body: some View {
         HStack {
@@ -70,10 +68,15 @@ struct FoodSummaryRow: View {
             
             Spacer()
             
-            Text("\(Int(foods.reduce(0) { $0 + $1.calories }))kcal")
+            Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))kcal")  // calories → actualCalories
                 .font(.caption)
                 .foregroundColor(.green)
                 .fontWeight(.semibold)
         }
     }
+}
+
+#Preview {
+    TodayFoodSummaryCard(foods: [])
+        .padding()
 }

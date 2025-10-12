@@ -2,8 +2,6 @@
 //  HomeView.swift
 //  FitnessTracker
 //
-//  Created by 沼田蓮二朗 on 2025/08/02.
-//
 
 import SwiftUI
 import CoreData
@@ -14,7 +12,7 @@ struct HomeView: View {
     
     @State private var dailyCalories: DailyCalories?
     @State private var todayWorkouts: [WorkoutEntry] = []
-    @State private var todayFoods: [FoodEntry] = []
+    @State private var todayFoods: [FoodRecord] = []  // FoodEntry → FoodRecord
     @State private var selectedDate = Date()
     
     var body: some View {
@@ -77,12 +75,12 @@ struct HomeView: View {
                                              endOfDay as NSDate)
         workoutRequest.sortDescriptors = [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)]
         
-        // 今日の食事データを取得
-        let foodRequest: NSFetchRequest<FoodEntry> = FoodEntry.fetchRequest()
+        // 今日の食事データを取得 (FoodRecord)
+        let foodRequest: NSFetchRequest<FoodRecord> = FoodRecord.fetchRequest()
         foodRequest.predicate = NSPredicate(format: "date >= %@ AND date < %@",
                                           startOfDay as NSDate,
                                           endOfDay as NSDate)
-        foodRequest.sortDescriptors = [NSSortDescriptor(keyPath: \FoodEntry.date, ascending: true)]
+        foodRequest.sortDescriptors = [NSSortDescriptor(keyPath: \FoodRecord.date, ascending: true)]
         
         // 今日のカロリーデータを取得
         let calorieRequest: NSFetchRequest<DailyCalories> = DailyCalories.fetchRequest()
@@ -97,11 +95,6 @@ struct HomeView: View {
             let calories = try viewContext.fetch(calorieRequest)
             dailyCalories = calories.first
             
-            print("デバッグ: 筋トレ記録数 = \(todayWorkouts.count)")
-            for workout in todayWorkouts {
-                print("デバッグ: 種目名 = \(workout.exerciseName ?? "nil")")
-            }
-            
         } catch {
             print("データ取得エラー: \(error)")
         }
@@ -114,7 +107,7 @@ struct HomeView: View {
         }
         
         // 合計値を計算して更新
-        let totalIntake = todayFoods.reduce(0) { $0 + $1.calories }
+        let totalIntake = todayFoods.reduce(0) { $0 + $1.actualCalories }  // calories → actualCalories
         let totalBurned = todayWorkouts.reduce(0) { $0 + $1.caloriesBurned }
         
         dailyCalories?.totalIntake = totalIntake
@@ -137,13 +130,8 @@ struct HomeView: View {
     }
 }
 
-
-
-
-struct HomeView_Previews: PreviewProvider {
-    static var previews: some View {
-        HomeView()
-            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-            .environmentObject(HealthKitManager())
-    }
+#Preview {
+    HomeView()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        .environmentObject(HealthKitManager())
 }

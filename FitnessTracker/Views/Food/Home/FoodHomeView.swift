@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Views/Food/Home/FoodHomeView.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import SwiftUI
 import CoreData
@@ -16,10 +14,11 @@ struct FoodHomeView: View {
     @State private var showingMealDetail = false
     @State private var selectedMealType = ""
     
+    // FoodEntry → FoodRecord に変更
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \FoodEntry.date, ascending: false)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \FoodRecord.date, ascending: false)],
         animation: .default)
-    private var foods: FetchedResults<FoodEntry>
+    private var foods: FetchedResults<FoodRecord>
     
     var body: some View {
         NavigationView {
@@ -60,6 +59,7 @@ struct FoodHomeView: View {
                                 .font(.title2)
                                 .foregroundColor(.blue)
                         }
+                        .disabled(Calendar.current.isDateInToday(selectedDate))
                     }
                     .padding()
                     .background(Color(.systemGray6))
@@ -70,14 +70,14 @@ struct FoodHomeView: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             // 摂取カロリー表示
-                            CalorieIntakeCard(foods: filteredFoodsForDay)
+                            CalorieIntakeCard(foods: Array(filteredFoodsForDay))
                             
                             // 栄養素表示
-                            NutritionCard(foods: filteredFoodsForDay)
+                            NutritionCard(foods: Array(filteredFoodsForDay))
                             
                             // 今日の食事カロリーまとめ
                             MealSummaryCard(
-                                foods: filteredFoodsForDay,
+                                foods: Array(filteredFoodsForDay),
                                 onMealTapped: { mealType in
                                     selectedMealType = mealType
                                     showingMealDetail = true
@@ -114,7 +114,7 @@ struct FoodHomeView: View {
                 MealDetailView(
                     mealType: selectedMealType,
                     selectedDate: selectedDate,
-                    foods: filteredFoodsForMeal(selectedMealType)
+                    foods: Array(filteredFoodsForMeal(selectedMealType))
                 )
                 .environment(\.managedObjectContext, viewContext)
             }
@@ -123,7 +123,7 @@ struct FoodHomeView: View {
     
     // MARK: - Helper Methods
     
-    private var filteredFoodsForDay: [FoodEntry] {
+    private var filteredFoodsForDay: [FoodRecord] {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: selectedDate)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
@@ -133,7 +133,7 @@ struct FoodHomeView: View {
         }
     }
     
-    private func filteredFoodsForMeal(_ mealType: String) -> [FoodEntry] {
+    private func filteredFoodsForMeal(_ mealType: String) -> [FoodRecord] {
         return filteredFoodsForDay.filter { $0.mealType == mealType }
     }
 }
@@ -146,9 +146,7 @@ private let dateFormatter: DateFormatter = {
     return formatter
 }()
 
-struct FoodHomeView_Previews: PreviewProvider {
-    static var previews: some View {
-        FoodHomeView()
-            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-    }
+#Preview {
+    FoodHomeView()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }

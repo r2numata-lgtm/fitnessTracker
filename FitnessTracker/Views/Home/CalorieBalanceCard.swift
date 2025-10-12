@@ -2,8 +2,6 @@
 //  CalorieBalanceCard.swift
 //  FitnessTracker
 //
-//  Created by 沼田蓮二朗 on 2025/08/19.
-//
 
 import SwiftUI
 
@@ -11,10 +9,10 @@ import SwiftUI
 struct CalorieBalanceCard: View {
     let dailyCalories: DailyCalories?
     let todayWorkouts: [WorkoutEntry]
-    let todayFoods: [FoodEntry]
+    let todayFoods: [FoodRecord]  // FoodEntry → FoodRecord
     
     private var totalIntake: Double {
-        todayFoods.reduce(0) { $0 + $1.calories }
+        todayFoods.reduce(0) { $0 + $1.actualCalories }  // calories → actualCalories
     }
     
     private var totalBurned: Double {
@@ -81,4 +79,13 @@ struct CalorieBalanceCard: View {
         .background(Color(.systemGray6))
         .cornerRadius(15)
     }
+}
+
+#Preview {
+    CalorieBalanceCard(
+        dailyCalories: nil,
+        todayWorkouts: [],
+        todayFoods: []
+    )
+    .padding()
 }

@@ -3,25 +3,26 @@
 //  FitnessTracker
 //  Views/Food/Home/NutritionCard.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import SwiftUI
 import CoreData
 
 // MARK: - 栄養素カード
 struct NutritionCard: View {
-    let foods: [FoodEntry]
+    let foods: [FoodRecord]  // FoodEntry → FoodRecord
     
     // 実際の栄養素データから計算
     private var nutritionData: [(String, Double, String, Color)] {
-        let totalNutrition = calculateTotalNutrition()
+        let totalProtein = foods.reduce(0) { $0 + $1.actualProtein }
+        let totalFat = foods.reduce(0) { $0 + $1.actualFat }
+        let totalCarbs = foods.reduce(0) { $0 + $1.actualCarbohydrates }
+        let totalSugar = foods.reduce(0) { $0 + $1.actualSugar }
         
         return [
-            ("たんぱく質", totalNutrition.protein, "g", .red),
-            ("脂質", totalNutrition.fat, "g", .orange),
-            ("炭水化物", totalNutrition.carbohydrates, "g", .blue),
-            ("糖質", totalNutrition.sugar, "g", .purple)
+            ("たんぱく質", totalProtein, "g", .red),
+            ("脂質", totalFat, "g", .orange),
+            ("炭水化物", totalCarbs, "g", .blue),
+            ("糖質", totalSugar, "g", .purple)
         ]
     }
     
@@ -44,14 +45,6 @@ struct NutritionCard: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(15)
-    }
-    
-    // MARK: - Private Methods
-    
-    private func calculateTotalNutrition() -> NutritionInfo {
-        return foods.reduce(NutritionInfo.empty) { total, food in
-            total + food.nutritionInfo
-        }
     }
 }
 
@@ -82,4 +75,9 @@ struct NutritionItem: View {
         .background(Color(.systemBackground))
         .cornerRadius(10)
     }
+}
+
+#Preview {
+    NutritionCard(foods: [])
+        .padding()
 }
