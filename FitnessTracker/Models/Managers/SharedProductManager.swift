@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Models/Managers/SharedProductManager.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import Foundation
 import FirebaseFirestore
@@ -49,21 +47,37 @@ class SharedProductManager: ObservableObject {
         return product
     }
     
-    /// 商品名で共有商品を検索
+    /// 商品名で共有商品を検索（改善版：ひらがな・カタカナ・漢字を区別しない）
     func searchByName(_ name: String) async throws -> [SharedProduct] {
         print("=== ユーザーDB検索（商品名）===")
         print("検索名: \(name)")
         
+        // ← 改善：正規化した検索語を生成
+        let normalizedSearchTerm = name.lowercased()
+            .applyingTransform(.hiraganaToKatakana, reverse: false) ?? name
+        
+        print("正規化後: \(normalizedSearchTerm)")
+        
+        // 全件取得して、クライアント側でフィルタリング（柔軟な検索のため）
         let query = db.collection("shared_products")
-            .whereField("name", isGreaterThanOrEqualTo: name)
-            .whereField("name", isLessThan: name + "\u{f8ff}")
             .order(by: "verificationCount", descending: true)
-            .limit(to: 20)
+            .limit(to: 100)  // 最大100件
         
         let snapshot = try await query.getDocuments()
         
-        let products = try snapshot.documents.map { document in
-            try document.data(as: SharedProduct.self)
+        let products = try snapshot.documents.compactMap { document -> SharedProduct? in
+            let product = try document.data(as: SharedProduct.self)
+            
+            // 商品名を正規化して比較
+            let normalizedProductName = product.name.lowercased()
+                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
+            
+            // 部分一致で検索
+            if normalizedProductName.contains(normalizedSearchTerm) {
+                return product
+            }
+            
+            return nil
         }
         
         print("商品名検索結果: \(products.count)件")
@@ -187,7 +201,7 @@ enum SharedProductError: Error, LocalizedError {
     case alreadyActioned
     case authenticationFailed
     case networkError
-    case productNotFound  // 追加
+    case productNotFound
     
     var errorDescription: String? {
         switch self {

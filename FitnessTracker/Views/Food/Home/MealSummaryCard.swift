@@ -9,14 +9,24 @@ import CoreData
 
 // MARK: - 食事カロリーまとめカード
 struct MealSummaryCard: View {
-    let foods: [FoodRecord]  // FoodEntry → FoodRecord
+    let foods: [FoodRecord]
     let onMealTapped: (String) -> Void
+    let onCardTapped: (() -> Void)?  // ← 追加：カード全体タップ用
+    
+    // ← 修正：イニシャライザーを追加
+    init(foods: [FoodRecord],
+         onMealTapped: @escaping (String) -> Void,
+         onCardTapped: (() -> Void)? = nil) {
+        self.foods = foods
+        self.onMealTapped = onMealTapped
+        self.onCardTapped = onCardTapped
+    }
     
     private var mealData: [(String, Double, Color)] {
         let mealTypes = ["朝食", "昼食", "夕食", "間食"]
         return mealTypes.map { mealType in
             let calories = foods.filter { $0.mealType == mealType }
-                .reduce(0) { $0 + $1.actualCalories }  // calories → actualCalories
+                .reduce(0) { $0 + $1.actualCalories }
             let color: Color = {
                 switch mealType {
                 case "朝食": return .orange
@@ -31,8 +41,25 @@ struct MealSummaryCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("今日の食事")
-                .font(.headline)
+            // ← 修正：ヘッダーをタップ可能に
+            HStack {
+                Text("今日の食事")
+                    .font(.headline)
+                
+                Spacer()
+                
+                if let onCardTapped = onCardTapped {
+                    Button(action: onCardTapped) {
+                        HStack(spacing: 4) {
+                            Text("すべて表示")
+                                .font(.caption)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+            }
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
                 ForEach(mealData, id: \.0) { meal in
@@ -53,12 +80,12 @@ struct MealSummaryCard: View {
     }
 }
 
-// MARK: - 食事サマリーアイテム
+// MARK: - 食事サマリーアイテム（変更なし）
 struct MealSummaryItem: View {
     let mealType: String
     let calories: Double
     let color: Color
-    let foods: [FoodRecord]  // FoodEntry → FoodRecord
+    let foods: [FoodRecord]
     let onTap: () -> Void
     
     var body: some View {
@@ -109,6 +136,10 @@ struct MealSummaryItem: View {
 }
 
 #Preview {
-    MealSummaryCard(foods: [], onMealTapped: { _ in })
-        .padding()
+    MealSummaryCard(
+        foods: [],
+        onMealTapped: { _ in },
+        onCardTapped: { print("すべて表示") }
+    )
+    .padding()
 }

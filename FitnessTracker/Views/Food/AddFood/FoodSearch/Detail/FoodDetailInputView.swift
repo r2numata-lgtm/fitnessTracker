@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Views/Food/AddFood/FoodSearch/Detail/FoodDetailInputView.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import SwiftUI
 import CoreData
@@ -21,10 +19,15 @@ struct FoodDetailInputView: View {
     @State private var selectedMealType: MealType = .lunch
     @State private var servingMultiplier: Double = 1.0
     @State private var isCustomMode: Bool
+    
+    // 手動入力用
+    @State private var customFoodName: String = ""      // ← 追加
     @State private var customCalories: Double = 0
     @State private var customProtein: Double = 0
     @State private var customFat: Double = 0
     @State private var customCarbohydrates: Double = 0
+    @State private var customSugar: Double = 0          // ← 追加
+    
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var showingVerifyConfirm = false
@@ -35,21 +38,24 @@ struct FoodDetailInputView: View {
         self.selectedDate = selectedDate
         self.onSaved = onSaved
         
-        // 手動追加（カロリーが0）の場合は手動入力モードで開始
         let nutrition: NutritionInfo
+        let name: String
+        
         switch foodResult {
         case .local(let food):
             nutrition = food.nutrition
+            name = food.name
         case .shared(let product):
             nutrition = product.nutrition
+            name = product.name
         }
         
         _isCustomMode = State(initialValue: nutrition.calories == 0)
+        _customFoodName = State(initialValue: name)      // ← 追加
         
         print("=== FoodDetailInputView 初期化 ===")
-        print("食材: \(foodResult.name)")
+        print("食材: \(name)")
         print("カロリー: \(nutrition.calories)")
-        print("servingSize: \(nutrition.servingSize)")
         print("手動入力モード: \(nutrition.calories == 0)")
     }
     
@@ -57,9 +63,7 @@ struct FoodDetailInputView: View {
         NavigationView {
             Form {
                 productInfoSection
-                
                 mealTypeSection
-                
                 nutritionInputSection
                 
                 if foodItem.nutrition.servingSize > 0 {
@@ -79,7 +83,7 @@ struct FoodDetailInputView: View {
                 Button("OK") {
                     if alertMessage.contains("成功") || alertMessage.contains("送信") {
                         onSaved?()
-                        presentationMode.wrappedValue.dismiss()
+                        presentationMode.wrappedValue.dismiss()  // ← 追加：保存後に閉じる
                     }
                 }
             } message: {
@@ -106,8 +110,15 @@ struct FoodDetailInputView: View {
     private var productInfoSection: some View {
         Section("商品情報") {
             VStack(alignment: .leading, spacing: 8) {
-                Text(foodItem.name)
-                    .font(.headline)
+                if isCustomMode {
+                    // ← 追加：手動入力モードでは食材名を編集可能に
+                    TextField("食材名", text: $customFoodName)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .font(.headline)
+                } else {
+                    Text(foodItem.name)
+                        .font(.headline)
+                }
                 
                 if let brand = foodItem.brand {
                     Text(brand)
@@ -178,7 +189,6 @@ struct FoodDetailInputView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
             }
         }
     }
@@ -201,6 +211,7 @@ struct FoodDetailInputView: View {
             NutritionInputField(label: "たんぱく質", value: $customProtein, unit: "g")
             NutritionInputField(label: "脂質", value: $customFat, unit: "g")
             NutritionInputField(label: "炭水化物", value: $customCarbohydrates, unit: "g")
+            NutritionInputField(label: "糖質", value: $customSugar, unit: "g")  // ← 追加
         }
     }
     
@@ -248,7 +259,7 @@ struct FoodDetailInputView: View {
             Button("保存") {
                 saveFoodItem()
             }
-            .disabled(isCustomMode && customCalories == 0)
+            .disabled(isCustomMode && (customCalories == 0 || customFoodName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
         }
     }
     
@@ -328,29 +339,31 @@ struct FoodDetailInputView: View {
         do {
             let nutritionToSave: NutritionInfo
             let amountToSave: Double
-            let foodItemToSave: FoodItem
+            let foodNameToSave: String  // ← 追加
             let shouldSaveToUserDB: Bool
             
             if isCustomMode || foodItem.nutrition.servingSize == 0 {
                 // 手動入力の場合
+                let trimmedName = customFoodName.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                guard !trimmedName.isEmpty else {
+                    alertMessage = "食材名を入力してください"
+                    showingAlert = true
+                    return
+                }
+                
+                foodNameToSave = trimmedName  // ← 追加
+                
                 nutritionToSave = NutritionInfo(
                     calories: customCalories,
                     protein: customProtein,
                     fat: customFat,
                     carbohydrates: customCarbohydrates,
-                    sugar: customCarbohydrates * 0.8,
+                    sugar: customSugar,  // ← 追加：糖質を保存
                     servingSize: 100
                 )
                 amountToSave = 100
                 
-                foodItemToSave = FoodItem(
-                    name: foodItem.name,
-                    nutrition: nutritionToSave,
-                    category: foodItem.category,
-                    brand: foodItem.brand
-                )
-                
-                // 判定：完全に新規作成の場合のみユーザーDBに保存
                 shouldSaveToUserDB = switch foodResult {
                 case .local(let food):
                     food.nutrition.calories == 0
@@ -358,37 +371,38 @@ struct FoodDetailInputView: View {
                     false
                 }
                 
-                print("=== 手動入力保存判定 ===")
-                print("食材名: \(foodItemToSave.name)")
-                print("ユーザーDBに保存: \(shouldSaveToUserDB)")
-                
                 // ユーザーDBへの保存（条件付き）
                 if shouldSaveToUserDB {
                     Task {
                         do {
                             try await IntegratedSearchManager.shared.saveManualEntry(
-                                name: foodItemToSave.name,
+                                name: foodNameToSave,  // ← 修正：編集後の名前を使用
                                 nutrition: nutritionToSave,
-                                category: foodItemToSave.category,
-                                brand: foodItemToSave.brand
+                                category: foodItem.category,
+                                brand: foodItem.brand
                             )
-                            print("✅ 新規食材をユーザーDBに保存: \(foodItemToSave.name)")
+                            print("✅ 新規食材をユーザーDBに保存: \(foodNameToSave)")
                         } catch {
                             print("⚠️ ユーザーDB保存エラー: \(error)")
                         }
                     }
-                } else {
-                    print("ℹ️ 既存食材の調整のため、ユーザーDBへは保存しない")
                 }
             } else {
-                // 通常の保存（既存の栄養情報を使用）
+                // 通常の保存
+                foodNameToSave = foodItem.name  // ← 追加
                 let actualGrams = foodItem.nutrition.servingSize * servingMultiplier
                 nutritionToSave = foodItem.nutrition.scaled(to: actualGrams)
                 amountToSave = actualGrams
-                foodItemToSave = foodItem
             }
             
-            // Core Dataに保存（常に実行）
+            // Core Dataに保存
+            let foodItemToSave = FoodItem(
+                name: foodNameToSave,  // ← 修正：編集後の名前を使用
+                nutrition: nutritionToSave,
+                category: foodItem.category,
+                brand: foodItem.brand
+            )
+            
             try FoodSaveManager.saveFoodItem(
                 context: viewContext,
                 foodItem: foodItemToSave,
@@ -425,7 +439,9 @@ struct NutritionInputField: View {
             TextField("0", value: $value, format: .number)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
+                .frame(width: 80)
             Text(unit)
+                .foregroundColor(.secondary)
         }
     }
 }

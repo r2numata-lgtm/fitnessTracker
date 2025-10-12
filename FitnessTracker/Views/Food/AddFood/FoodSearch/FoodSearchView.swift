@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Views/Food/AddFood/FoodSearch/FoodSearchView.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import SwiftUI
 import CoreData
@@ -21,16 +19,32 @@ struct FoodSearchView: View {
     @State private var isSearching = false
     @State private var selectedFoodResult: FoodSearchResult?
     @State private var favoriteFoods: [FoodItem] = []
+    @State private var showingManualInput = false  // ← 追加
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                searchBar
+            ZStack {  // ← 追加：フローティングボタンのため
+                VStack(spacing: 0) {
+                    searchBar
+                    
+                    if searchText.isEmpty {
+                        favoriteFoodsSection
+                    } else {
+                        searchResultsSection
+                    }
+                }
                 
-                if searchText.isEmpty {
-                    favoriteFoodsSection
-                } else {
-                    searchResultsSection
+                // ← 追加：右下のフローティングボタン
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        FloatingActionButton(action: {
+                            showingManualInput = true
+                        })
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
+                    }
                 }
             }
             .navigationTitle("食材検索")
@@ -41,6 +55,26 @@ struct FoodSearchView: View {
             .sheet(item: $selectedFoodResult) { result in
                 FoodDetailInputView(
                     foodResult: result,
+                    selectedDate: selectedDate,
+                    onSaved: loadFavorites
+                )
+                .environment(\.managedObjectContext, viewContext)
+            }
+            // ← 追加：手動入力シート
+            .sheet(isPresented: $showingManualInput) {
+                FoodDetailInputView(
+                    foodResult: .local(FoodItem(
+                        name: "",  // 空の食材名でスタート
+                        nutrition: NutritionInfo(
+                            calories: 0,
+                            protein: 0,
+                            fat: 0,
+                            carbohydrates: 0,
+                            sugar: 0,
+                            servingSize: 100
+                        ),
+                        category: "カスタム"
+                    )),
                     selectedDate: selectedDate,
                     onSaved: loadFavorites
                 )
@@ -72,6 +106,9 @@ struct FoodSearchView: View {
                 } else {
                     favoriteFoodsList
                 }
+                
+                // ← 追加：スクロール用の余白（ボタンと重ならないように）
+                Spacer(minLength: 80)
             }
             .padding(.vertical)
         }
@@ -114,6 +151,9 @@ struct FoodSearchView: View {
                 } else {
                     searchResultsList
                 }
+                
+                // ← 追加：スクロール用の余白
+                Spacer(minLength: 80)
             }
             .padding()
         }

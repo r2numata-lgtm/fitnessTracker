@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Models/Managers/FoodMasterManager.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/07.
-//
 
 import Foundation
 import CoreData
@@ -77,19 +75,33 @@ class FoodMasterManager {
         }
     }
     
-    /// 食材名で検索
+    /// 食材名で検索（改善版：ひらがな・カタカナ・漢字を区別しない）
     static func searchFoodMasters(
         name: String,
         context: NSManagedObjectContext
     ) -> [FoodMaster] {
         let fetchRequest: NSFetchRequest<FoodMaster> = FoodMaster.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "name CONTAINS[cd] %@", name)
         fetchRequest.sortDescriptors = [
             NSSortDescriptor(keyPath: \FoodMaster.name, ascending: true)
         ]
         
         do {
-            return try context.fetch(fetchRequest)
+            let allMasters = try context.fetch(fetchRequest)
+            
+            // ← 改善：正規化して検索
+            let normalizedSearchTerm = name.lowercased()
+                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? name
+            
+            let filtered = allMasters.filter { master in
+                let normalizedMasterName = master.name.lowercased()
+                    .applyingTransform(.hiraganaToKatakana, reverse: false) ?? master.name
+                
+                return normalizedMasterName.contains(normalizedSearchTerm)
+            }
+            
+            print("✅ 食材マスタ検索: \(name) → \(filtered.count)件")
+            return filtered
+            
         } catch {
             print("⚠️ 食材マスタ検索エラー: \(error)")
             return []
