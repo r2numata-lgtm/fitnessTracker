@@ -2,8 +2,7 @@
 //  Persistence.swift
 //  FitnessTracker
 //
-//  Created by 沼田蓮二朗 on 2025/07/26.
-//
+
 import CoreData
 
 struct PersistenceController {
@@ -22,11 +21,30 @@ struct PersistenceController {
         sampleWorkout.reps = 10
         sampleWorkout.caloriesBurned = 150
         
-        let sampleFood = FoodEntry(context: viewContext)
-        sampleFood.date = Date()
-        sampleFood.foodName = "鶏胸肉"
-        sampleFood.calories = 200
-        sampleFood.mealType = "昼食"
+        // FoodEntry → FoodRecord に変更
+        let sampleFoodMaster = FoodMaster(context: viewContext)
+        sampleFoodMaster.id = UUID()
+        sampleFoodMaster.name = "鶏胸肉"
+        sampleFoodMaster.calories = 191
+        sampleFoodMaster.protein = 23.3
+        sampleFoodMaster.fat = 1.9
+        sampleFoodMaster.carbohydrates = 0
+        sampleFoodMaster.sugar = 0
+        sampleFoodMaster.fiber = 0
+        sampleFoodMaster.sodium = 0
+        sampleFoodMaster.createdAt = Date()
+        
+        let sampleFoodRecord = FoodRecord(context: viewContext)
+        sampleFoodRecord.id = UUID()
+        sampleFoodRecord.date = Date()
+        sampleFoodRecord.mealType = "昼食"
+        sampleFoodRecord.servingMultiplier = 1.0
+        sampleFoodRecord.actualCalories = 191
+        sampleFoodRecord.actualProtein = 23.3
+        sampleFoodRecord.actualFat = 1.9
+        sampleFoodRecord.actualCarbohydrates = 0
+        sampleFoodRecord.actualSugar = 0
+        sampleFoodRecord.foodMaster = sampleFoodMaster
         
         let sampleBody = BodyComposition(context: viewContext)
         sampleBody.date = Date()

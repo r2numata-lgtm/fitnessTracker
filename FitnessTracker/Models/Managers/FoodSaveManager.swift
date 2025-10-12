@@ -132,40 +132,8 @@ class FoodSaveManager {
         }
     }
     
-    /// 既存データの栄養素フィールドを初期化（マイグレーション用）
-    /// ※ FoodEntryからFoodRecordへの移行時に使用
-    static func migrateFromFoodEntry(context: NSManagedObjectContext) {
-        let fetchRequest: NSFetchRequest<FoodEntry> = FoodEntry.fetchRequest()
-        
-        do {
-            let existingEntries = try context.fetch(fetchRequest)
-            
-            var migratedCount = 0
-            for entry in existingEntries {
-                // FoodEntry -> FoodRecord に変換
-                let servingMultiplier = entry.servingSize / 100.0
-                
-                try? FoodRecordManager.saveFoodRecord(
-                    context: context,
-                    name: entry.foodName ?? "不明な食材",
-                    nutrition: entry.nutritionInfo,
-                    servingMultiplier: servingMultiplier,
-                    mealType: MealType(rawValue: entry.mealType ?? "昼食") ?? .lunch,
-                    date: entry.date,
-                    photo: entry.photo
-                )
-                
-                migratedCount += 1
-            }
-            
-            if migratedCount > 0 {
-                print("✅ FoodEntryからFoodRecordへ移行完了: \(migratedCount)件")
-            }
-            
-        } catch {
-            print("❌ マイグレーションエラー: \(error)")
-        }
-    }
+    // ⚠️ 以下のマイグレーション関数は削除
+    // migrateFromFoodEntry() は不要
     
     /// 日付別の栄養素合計を取得
     static func getTotalNutrition(
