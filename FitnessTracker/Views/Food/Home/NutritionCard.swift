@@ -10,18 +10,35 @@ import CoreData
 // MARK: - 栄養素表示カード
 struct NutritionCard: View {
     let foods: [FoodRecord]
-    let onShowAll: (() -> Void)?  // ← 追加
+    let onShowAll: (() -> Void)?
     
     init(foods: [FoodRecord], onShowAll: (() -> Void)? = nil) {
         self.foods = foods
         self.onShowAll = onShowAll
     }
     
-    private var totalNutrition: (protein: Double, fat: Double, carbs: Double) {
+    private var totalNutrition: (
+        protein: Double,
+        fat: Double,
+        carbs: Double,
+        sugar: Double,
+        fiber: Double,
+        sodium: Double
+    ) {
         let protein = foods.reduce(0) { $0 + $1.actualProtein }
         let fat = foods.reduce(0) { $0 + $1.actualFat }
         let carbs = foods.reduce(0) { $0 + $1.actualCarbohydrates }
-        return (protein, fat, carbs)
+        let sugar = foods.reduce(0) { $0 + $1.actualSugar }
+        
+        // FoodMaster から食物繊維とナトリウムを取得
+        let fiber = foods.reduce(0.0) { sum, food in
+            sum + (food.foodMaster?.fiber ?? 0) * food.servingMultiplier
+        }
+        let sodium = foods.reduce(0.0) { sum, food in
+            sum + (food.foodMaster?.sodium ?? 0) * food.servingMultiplier
+        }
+        
+        return (protein, fat, carbs, sugar, fiber, sodium)
     }
     
     var body: some View {
@@ -32,7 +49,6 @@ struct NutritionCard: View {
                 
                 Spacer()
                 
-                // ← 追加：すべて表示ボタン
                 if let onShowAll = onShowAll {
                     Button(action: onShowAll) {
                         HStack(spacing: 4) {
@@ -46,6 +62,7 @@ struct NutritionCard: View {
                 }
             }
             
+            // 主要栄養素（3列）
             HStack(spacing: 12) {
                 NutritionItem(
                     label: "たんぱく質",
@@ -68,6 +85,30 @@ struct NutritionCard: View {
                     color: .blue
                 )
             }
+            
+            // 詳細栄養素（3列）
+            HStack(spacing: 12) {
+                NutritionItem(
+                    label: "糖質",
+                    value: totalNutrition.sugar,
+                    unit: "g",
+                    color: .purple
+                )
+                
+                NutritionItem(
+                    label: "食物繊維",
+                    value: totalNutrition.fiber,
+                    unit: "g",
+                    color: .green
+                )
+                
+                NutritionItem(
+                    label: "ナトリウム",
+                    value: totalNutrition.sodium,
+                    unit: "mg",
+                    color: .cyan
+                )
+            }
         }
         .padding()
         .background(Color(.systemGray6))
@@ -87,20 +128,25 @@ struct NutritionItem: View {
             Text(label)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text("\(Int(value))")
-                    .font(.title2)
+                Text(value < 1 ? String(format: "%.1f", value) : "\(Int(value))")
+                    .font(.title3)
                     .fontWeight(.bold)
                     .foregroundColor(color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 
                 Text(unit)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
         .background(Color(.systemBackground))
         .cornerRadius(12)
     }

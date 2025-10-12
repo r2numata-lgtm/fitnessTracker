@@ -11,6 +11,7 @@ import CoreData
 struct FoodDetailInputView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.dismiss) private var dismiss
     
     let foodResult: FoodSearchResult
     let selectedDate: Date
@@ -81,9 +82,13 @@ struct FoodDetailInputView: View {
             }
             .alert("結果", isPresented: $showingAlert) {
                 Button("OK") {
-                    if alertMessage.contains("成功") || alertMessage.contains("送信") {
+                    if alertMessage.contains("成功") || alertMessage.contains("保存") {
                         onSaved?()
-                        presentationMode.wrappedValue.dismiss()  // ← 追加：保存後に閉じる
+                        // モーダルを複数階層閉じる
+                        presentationMode.wrappedValue.dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                 }
             } message: {
