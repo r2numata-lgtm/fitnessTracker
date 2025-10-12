@@ -14,6 +14,7 @@ struct FoodHomeView: View {
     @State private var showingMealDetail = false
     @State private var selectedMealType = ""
     @State private var showingAllFoodsList = false
+    @State private var refreshID = UUID()  // ← 追加: リフレッシュ用ID
     
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \FoodRecord.date, ascending: false)],
@@ -71,6 +72,7 @@ struct FoodHomeView: View {
                         VStack(spacing: 12) {
                             // 摂取カロリー表示
                             CalorieIntakeCard(foods: Array(filteredFoodsForDay))
+                                .id(refreshID)
                                 .onTapGesture {
                                     showingAllFoodsList = true
                                 }
@@ -82,6 +84,7 @@ struct FoodHomeView: View {
                                     showingAllFoodsList = true
                                 }
                             )
+                            .id(refreshID)
                             
                             // 今日の食事カロリーまとめ
                             MealSummaryCard(
@@ -94,6 +97,7 @@ struct FoodHomeView: View {
                                     showingAllFoodsList = true
                                 }
                             )
+                            .id(refreshID)
                             
                             // 空きスペース（フローティングボタンのため）
                             Spacer(minLength: 80)
@@ -121,11 +125,22 @@ struct FoodHomeView: View {
                 AddFoodMethodView(selectedDate: selectedDate)
                     .environment(\.managedObjectContext, viewContext)
             }
+            .onChange(of: showingAddFoodMethod) { isShowing in
+                            // ← 追加: シートが閉じたらリフレッシュ
+                            if !isShowing {
+                                refreshID = UUID()
+                            }
+                        }
+                        .onChange(of: foods.count) { _ in
+                            // ← 追加: データ変更を検知してリフレッシュ
+                            refreshID = UUID()
+                        }
             .sheet(isPresented: $showingMealDetail) {
+                let mealFoods = filteredFoodsForMeal(selectedMealType)
                 MealDetailView(
                     mealType: selectedMealType,
                     selectedDate: selectedDate,
-                    foods: Array(filteredFoodsForMeal(selectedMealType))
+                    foods: mealFoods
                 )
                 .environment(\.managedObjectContext, viewContext)
             }

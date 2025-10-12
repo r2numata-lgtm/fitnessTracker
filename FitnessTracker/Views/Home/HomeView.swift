@@ -12,39 +12,39 @@ struct HomeView: View {
     
     @State private var dailyCalories: DailyCalories?
     @State private var todayWorkouts: [WorkoutEntry] = []
-    @State private var todayFoods: [FoodRecord] = []  // FoodEntry → FoodRecord
+    @State private var todayFoods: [FoodRecord] = []
     @State private var selectedDate = Date()
+    @State private var refreshID = UUID()  // ← 追加
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // 日付選択
                     DatePicker("日付", selection: $selectedDate, displayedComponents: .date)
                         .datePickerStyle(CompactDatePickerStyle())
                         .padding(.horizontal)
                         .onChange(of: selectedDate) { _ in
                             loadTodayData()
+                            refreshID = UUID()  // ← 追加
                         }
                     
-                    // カロリー収支表示
                     CalorieBalanceCard(
                         dailyCalories: dailyCalories,
                         todayWorkouts: todayWorkouts,
                         todayFoods: todayFoods
                     )
+                    .id(refreshID)  // ← 追加
                     
-                    // 今日の筋トレ記録サマリー
                     if !todayWorkouts.isEmpty {
                         TodayWorkoutSummaryCard(workouts: todayWorkouts)
+                            .id(refreshID)  // ← 追加
                     }
                     
-                    // 今日の食事記録サマリー
                     if !todayFoods.isEmpty {
                         TodayFoodSummaryCard(foods: todayFoods)
+                            .id(refreshID)  // ← 追加
                     }
                     
-                    // データがない場合のメッセージ
                     if todayWorkouts.isEmpty && todayFoods.isEmpty {
                         EmptyStateCard()
                     }
@@ -57,6 +57,14 @@ struct HomeView: View {
             .onAppear {
                 loadTodayData()
                 updateDailyCalories()
+            }
+            .onChange(of: viewContext.hasChanges) { _ in
+                // ← 追加: Core Dataの変更を検知
+                if !viewContext.hasChanges {
+                    loadTodayData()
+                    updateDailyCalories()
+                    refreshID = UUID()
+                }
             }
         }
     }

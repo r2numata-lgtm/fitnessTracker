@@ -187,8 +187,10 @@ struct FoodMasterDetailView: View {
                 photo: foodMaster.photo
             )
             
-            alertMessage = "食材を保存しました！"
-            showingAlert = true
+            // 変更: アラートを表示せず、0.5秒後に閉じる
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                presentationMode.wrappedValue.dismiss()
+            }
             
         } catch {
             print("保存エラー: \(error)")

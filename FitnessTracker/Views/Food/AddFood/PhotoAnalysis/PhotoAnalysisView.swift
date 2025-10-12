@@ -555,8 +555,9 @@ struct PhotoResultView: View {
                 photo: imageData
             )
             
-            alertMessage = "写真解析結果を保存しました！"
-            showingAlert = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        presentationMode.wrappedValue.dismiss()
+                    }
             
         } catch {
             print("保存エラー: \(error)")

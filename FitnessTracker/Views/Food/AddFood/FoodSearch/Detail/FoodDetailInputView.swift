@@ -344,11 +344,10 @@ struct FoodDetailInputView: View {
         do {
             let nutritionToSave: NutritionInfo
             let amountToSave: Double
-            let foodNameToSave: String  // ← 追加
+            let foodNameToSave: String
             let shouldSaveToUserDB: Bool
             
             if isCustomMode || foodItem.nutrition.servingSize == 0 {
-                // 手動入力の場合
                 let trimmedName = customFoodName.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 guard !trimmedName.isEmpty else {
@@ -357,14 +356,13 @@ struct FoodDetailInputView: View {
                     return
                 }
                 
-                foodNameToSave = trimmedName  // ← 追加
-                
+                foodNameToSave = trimmedName
                 nutritionToSave = NutritionInfo(
                     calories: customCalories,
                     protein: customProtein,
                     fat: customFat,
                     carbohydrates: customCarbohydrates,
-                    sugar: customSugar,  // ← 追加：糖質を保存
+                    sugar: customSugar,
                     servingSize: 100
                 )
                 amountToSave = 100
@@ -376,12 +374,11 @@ struct FoodDetailInputView: View {
                     false
                 }
                 
-                // ユーザーDBへの保存（条件付き）
                 if shouldSaveToUserDB {
                     Task {
                         do {
                             try await IntegratedSearchManager.shared.saveManualEntry(
-                                name: foodNameToSave,  // ← 修正：編集後の名前を使用
+                                name: foodNameToSave,
                                 nutrition: nutritionToSave,
                                 category: foodItem.category,
                                 brand: foodItem.brand
@@ -393,16 +390,14 @@ struct FoodDetailInputView: View {
                     }
                 }
             } else {
-                // 通常の保存
-                foodNameToSave = foodItem.name  // ← 追加
+                foodNameToSave = foodItem.name
                 let actualGrams = foodItem.nutrition.servingSize * servingMultiplier
                 nutritionToSave = foodItem.nutrition.scaled(to: actualGrams)
                 amountToSave = actualGrams
             }
             
-            // Core Dataに保存
             let foodItemToSave = FoodItem(
-                name: foodNameToSave,  // ← 修正：編集後の名前を使用
+                name: foodNameToSave,
                 nutrition: nutritionToSave,
                 category: foodItem.category,
                 brand: foodItem.brand
@@ -416,11 +411,12 @@ struct FoodDetailInputView: View {
                 date: selectedDate
             )
             
-            // よく使う食材に追加
             FavoriteFoodManager.shared.addFavorite(foodItemToSave)
             
-            alertMessage = "食材情報を保存しました！"
-            showingAlert = true
+            // 変更: アラートを表示せず、0.5秒後に閉じる
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                presentationMode.wrappedValue.dismiss()
+            }
             
         } catch {
             print("保存エラー: \(error)")

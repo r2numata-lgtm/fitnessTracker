@@ -1,7 +1,6 @@
 //
-//  AllFoodsListView.swift
+//  AllFoodsListView.swift - 完全修正版
 //  FitnessTracker
-//  Views/Food/Home/AllFoodsListView.swift
 //
 
 import SwiftUI
@@ -37,10 +36,7 @@ struct AllFoodsListView: View {
                         Section(header: mealTypeHeader(mealType)) {
                             ForEach(mealFoods, id: \.id) { food in
                                 Button(action: {
-                                    print("=== 食事タップ ===")
-                                    print("食材名: \(food.foodName)")
-                                    selectedFood = food
-                                    showingFoodDetail = true
+                                    handleFoodTap(food)
                                 }) {
                                     FoodListRow(food: food)
                                 }
@@ -72,10 +68,6 @@ struct AllFoodsListView: View {
                 if let food = selectedFood {
                     FoodRecordDetailSheet(food: food)
                         .environment(\.managedObjectContext, viewContext)
-                        .onAppear {
-                            print("=== 詳細シート表示 ===")
-                            print("食材名: \(food.foodName)")
-                        }
                 }
             }
         }
@@ -166,20 +158,30 @@ struct AllFoodsListView: View {
     
     // MARK: - Functions
     
+    private func handleFoodTap(_ food: FoodRecord) {
+        // Core Dataオブジェクトの最新状態を取得
+        do {
+            if let refreshedFood = try viewContext.existingObject(with: food.objectID) as? FoodRecord {
+                selectedFood = refreshedFood
+                showingFoodDetail = true
+            }
+        } catch {
+            print("食事データ取得エラー: \(error)")
+            selectedFood = food
+            showingFoodDetail = true
+        }
+    }
+    
     private func deleteFood(offsets: IndexSet, from mealFoods: [FoodRecord]) {
         for index in offsets {
             let foodToDelete = mealFoods[index]
-            print("=== 食事記録を削除: \(foodToDelete.objectID) ===")
-            
-            // FoodRecord を削除（FoodMaster は何もしない）
             viewContext.delete(foodToDelete)
         }
         
         do {
             try viewContext.save()
-            print("✅ 削除成功")
         } catch {
-            print("❌ 削除エラー: \(error)")
+            print("削除エラー: \(error)")
             viewContext.rollback()
         }
     }
@@ -231,7 +233,6 @@ struct FoodListRow: View {
                 .foregroundColor(.orange)
         }
         .padding(.vertical, 4)
-        .contentShape(Rectangle())
     }
 }
 
@@ -348,23 +349,19 @@ struct FoodRecordDetailSheet: View {
                     deleteFood()
                 }
             } message: {
-                Text("この食事記録を削除しますか？")
+                Text("この食事記録を削除しますか?")
             }
         }
     }
     
     private func deleteFood() {
-        print("=== 食事記録を削除: \(food.objectID) ===")
-        
-        // FoodRecord を削除（FoodMaster は何もしない）
         viewContext.delete(food)
         
         do {
             try viewContext.save()
-            print("✅ 削除成功")
             presentationMode.wrappedValue.dismiss()
         } catch {
-            print("❌ 削除エラー: \(error)")
+            print("削除エラー: \(error)")
             viewContext.rollback()
         }
     }

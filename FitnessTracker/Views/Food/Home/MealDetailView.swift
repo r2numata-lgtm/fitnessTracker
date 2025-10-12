@@ -1,7 +1,6 @@
 //
-//  MealDetailView.swift
+//  MealDetailView.swift - 修正版
 //  FitnessTracker
-//  Views/Food/Home/MealDetailView.swift
 //
 
 import SwiftUI
@@ -56,6 +55,15 @@ struct MealDetailView: View {
                 if let food = selectedFood {
                     FoodRecordDetailSheet(food: food)
                         .environment(\.managedObjectContext, viewContext)
+                }
+            }
+            .onAppear {
+                // デバッグ情報
+                print("=== MealDetailView 表示 ===")
+                print("食事タイプ: \(mealType)")
+                print("データ件数: \(foods.count)")
+                for (index, food) in foods.enumerated() {
+                    print("[\(index)] \(food.foodName) - \(food.mealType)")
                 }
             }
         }
@@ -136,13 +144,4 @@ struct MealDetailView: View {
             viewContext.rollback()
         }
     }
-}
-
-#Preview {
-    MealDetailView(
-        mealType: "昼食",
-        selectedDate: Date(),
-        foods: []
-    )
-    .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
