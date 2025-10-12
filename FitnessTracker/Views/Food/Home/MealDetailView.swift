@@ -1,5 +1,5 @@
 //
-//  MealDetailView.swift - 修正版
+//  MealDetailView.swift - 重複定義削除版
 //  FitnessTracker
 //
 
@@ -9,7 +9,7 @@ import CoreData
 // MARK: - 食事タイプ別詳細画面
 struct MealDetailView: View {
     @Environment(\.managedObjectContext) private var viewContext
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     
     let mealType: String
     let selectedDate: Date
@@ -20,22 +20,14 @@ struct MealDetailView: View {
     
     var body: some View {
         NavigationView {
-            List {
+            ZStack {
                 if foods.isEmpty {
                     emptyStateView
                 } else {
-                    ForEach(foods, id: \.id) { food in
-                        Button(action: {
-                            selectedFood = food
-                            showingFoodDetail = true
-                        }) {
-                            FoodListRow(food: food)
-                        }
-                        .buttonStyle(PlainButtonStyle())
+                    List {
+                        foodListSection
+                        totalNutritionSection
                     }
-                    .onDelete(perform: deleteFood)
-                    
-                    totalNutritionSection
                 }
             }
             .navigationTitle("\(mealType)の記録")
@@ -43,12 +35,14 @@ struct MealDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("閉じる") {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                if !foods.isEmpty {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        EditButton()
+                    }
                 }
             }
             .sheet(isPresented: $showingFoodDetail) {
@@ -73,7 +67,21 @@ struct MealDetailView: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .listRowBackground(Color.clear)
+    }
+    
+    private var foodListSection: some View {
+        Section {
+            ForEach(foods, id: \.id) { food in
+                Button {
+                    selectedFood = food
+                    showingFoodDetail = true
+                } label: {
+                    FoodListRow(food: food)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .onDelete(perform: deleteFood)
+        }
     }
     
     private var totalNutritionSection: some View {
@@ -137,11 +145,41 @@ struct MealDetailView: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
-    MealDetailView(
-        mealType: "昼食",
+    let context = PersistenceController.preview.container.viewContext
+    
+    // FoodMaster作成
+    let foodMaster = FoodMaster(context: context)
+    foodMaster.id = UUID()
+    foodMaster.name = "鶏胸肉"
+    foodMaster.calories = 108
+    foodMaster.protein = 23.3
+    foodMaster.fat = 1.9
+    foodMaster.carbohydrates = 0.0
+    foodMaster.sugar = 0.0
+    foodMaster.fiber = 0.0
+    foodMaster.sodium = 40.0
+    foodMaster.category = "肉類"
+    foodMaster.createdAt = Date()
+    
+    // FoodRecord作成
+    let foodRecord = FoodRecord(context: context)
+    foodRecord.id = UUID()
+    foodRecord.date = Date()
+    foodRecord.mealType = "間食"
+    foodRecord.servingMultiplier = 1.0
+    foodRecord.actualCalories = 108
+    foodRecord.actualProtein = 23.3
+    foodRecord.actualFat = 1.9
+    foodRecord.actualCarbohydrates = 0.0
+    foodRecord.actualSugar = 0.0
+    foodRecord.foodMaster = foodMaster
+    
+    return MealDetailView(
+        mealType: "間食",
         selectedDate: Date(),
-        foods: []
+        foods: [foodRecord]
     )
-    .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    .environment(\.managedObjectContext, context)
 }
