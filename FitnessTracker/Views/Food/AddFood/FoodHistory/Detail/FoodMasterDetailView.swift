@@ -150,10 +150,53 @@ struct FoodMasterDetailView: View {
         Section("この分量での栄養情報") {
             let adjustedNutrition = foodMaster.nutritionInfo.scaled(to: 100.0 * servingMultiplier)
             
-            NutritionDisplayRow(label: "カロリー", value: Int(adjustedNutrition.calories), unit: "kcal")
-            NutritionDisplayRow(label: "たんぱく質", value: Int(adjustedNutrition.protein), unit: "g")
-            NutritionDisplayRow(label: "脂質", value: Int(adjustedNutrition.fat), unit: "g")
-            NutritionDisplayRow(label: "炭水化物", value: Int(adjustedNutrition.carbohydrates), unit: "g")
+            // 基本栄養素
+            NutritionDisplayRow(
+                label: "カロリー",
+                value: Int(adjustedNutrition.calories),
+                unit: "kcal"
+            )
+            
+            NutritionDisplayRow(
+                label: "たんぱく質",
+                value: Int(adjustedNutrition.protein),
+                unit: "g"
+            )
+            
+            NutritionDisplayRow(
+                label: "脂質",
+                value: Int(adjustedNutrition.fat),
+                unit: "g"
+            )
+            
+            NutritionDisplayRow(
+                label: "炭水化物",
+                value: Int(adjustedNutrition.carbohydrates),
+                unit: "g"
+            )
+            
+            NutritionDisplayRow(
+                label: "糖質",
+                value: Int(adjustedNutrition.sugar),
+                unit: "g"
+            )
+            
+            // 追加の栄養素（値がある場合のみ表示）
+            if let fiber = adjustedNutrition.fiber, fiber > 0 {
+                NutritionDisplayRow(
+                    label: "食物繊維",
+                    value: Int(fiber),
+                    unit: "g"
+                )
+            }
+            
+            if let sodium = adjustedNutrition.sodium, sodium > 0 {
+                NutritionDisplayRow(
+                    label: "食塩相当量",
+                    value: String(format: "%.1f", sodium),
+                    unit: "g"
+                )
+            }
         }
     }
     

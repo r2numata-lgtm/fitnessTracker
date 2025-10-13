@@ -1,5 +1,5 @@
 //
-//  MealDetailView.swift - 栄養素表示更新版
+//  MealDetailView.swift - 完全修正版
 //  FitnessTracker
 //
 
@@ -13,10 +13,32 @@ struct MealDetailView: View {
     
     let mealType: String
     let selectedDate: Date
-    let foods: [FoodRecord]
+    
+    // ✅ @FetchRequestで動的取得
+    @FetchRequest private var foods: FetchedResults<FoodRecord>
     
     @State private var selectedFood: FoodRecord?
     @State private var showingFoodDetail = false
+    
+    // ✅ initで@FetchRequestを設定
+    init(mealType: String, selectedDate: Date) {
+        self.mealType = mealType
+        self.selectedDate = selectedDate
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: selectedDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        _foods = FetchRequest<FoodRecord>(
+            sortDescriptors: [NSSortDescriptor(keyPath: \FoodRecord.date, ascending: false)],
+            predicate: NSPredicate(
+                format: "date >= %@ AND date < %@ AND mealType == %@",
+                startOfDay as NSDate,
+                endOfDay as NSDate,
+                mealType
+            )
+        )
+    }
     
     var body: some View {
         NavigationView {
@@ -71,7 +93,7 @@ struct MealDetailView: View {
     
     private var foodListSection: some View {
         Section {
-            ForEach(foods, id: \.id) { food in
+            ForEach(foods) { food in
                 Button {
                     selectedFood = food
                     showingFoodDetail = true
@@ -86,66 +108,60 @@ struct MealDetailView: View {
     
     private var totalNutritionSection: some View {
         Section("合計") {
-            // たんぱく質
             HStack {
                 Text("たんぱく質")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualProtein }))")
+                Text("\(Int(totalProtein))")
                     .fontWeight(.bold)
                     .foregroundColor(.red)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            // 炭水化物
             HStack {
                 Text("炭水化物")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualCarbohydrates }))")
+                Text("\(Int(totalCarbohydrates))")
                     .fontWeight(.bold)
                     .foregroundColor(.blue)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            // 脂質
             HStack {
                 Text("脂質")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualFat }))")
+                Text("\(Int(totalFat))")
                     .fontWeight(.bold)
                     .foregroundColor(.orange)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            // 糖質
             HStack {
                 Text("糖質")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualSugar }))")
+                Text("\(Int(totalSugar))")
                     .fontWeight(.bold)
                     .foregroundColor(.purple)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            // 食物繊維
             HStack {
                 Text("食物繊維")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualFiber }))")
+                Text("\(Int(totalFiber))")
                     .fontWeight(.bold)
                     .foregroundColor(.green)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            // 食塩相当量（sodiumをgで表示）
             HStack {
                 Text("食塩相当量")
                 Spacer()
-                Text(String(format: "%.1f", foods.reduce(0) { $0 + $1.actualSodium }))
+                Text(String(format: "%.1f", totalSodium))
                     .fontWeight(.bold)
                     .foregroundColor(.gray)
                 Text("g")
@@ -154,11 +170,10 @@ struct MealDetailView: View {
             
             Divider()
             
-            // カロリーは最後に表示
             HStack {
                 Text("カロリー")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))")
+                Text("\(Int(totalCalories))")
                     .fontWeight(.bold)
                     .foregroundColor(.orange)
                 Text("kcal")
@@ -167,19 +182,49 @@ struct MealDetailView: View {
         }
     }
     
+    // MARK: - Computed Properties
+    
+    private var totalCalories: Double {
+        foods.reduce(0) { $0 + $1.actualCalories }
+    }
+    
+    private var totalProtein: Double {
+        foods.reduce(0) { $0 + $1.actualProtein }
+    }
+    
+    private var totalFat: Double {
+        foods.reduce(0) { $0 + $1.actualFat }
+    }
+    
+    private var totalCarbohydrates: Double {
+        foods.reduce(0) { $0 + $1.actualCarbohydrates }
+    }
+    
+    private var totalSugar: Double {
+        foods.reduce(0) { $0 + $1.actualSugar }
+    }
+    
+    private var totalFiber: Double {
+        foods.reduce(0) { $0 + $1.actualFiber }
+    }
+    
+    private var totalSodium: Double {
+        foods.reduce(0) { $0 + $1.actualSodium }
+    }
+    
     // MARK: - Functions
     
     private func deleteFood(offsets: IndexSet) {
-        for index in offsets {
-            let food = foods[index]
-            viewContext.delete(food)
-        }
-        
-        do {
-            try viewContext.save()
-        } catch {
-            print("削除エラー: \(error)")
-            viewContext.rollback()
+        withAnimation {
+            offsets.map { foods[$0] }.forEach(viewContext.delete)
+            
+            do {
+                try viewContext.save()
+                print("✅ 削除成功")
+            } catch {
+                print("❌ 削除エラー: \(error)")
+                viewContext.rollback()
+            }
         }
     }
 }
@@ -188,7 +233,6 @@ struct MealDetailView: View {
 #Preview {
     let context = PersistenceController.preview.container.viewContext
     
-    // FoodMaster作成
     let foodMaster = FoodMaster(context: context)
     foodMaster.id = UUID()
     foodMaster.name = "鶏胸肉"
@@ -202,7 +246,6 @@ struct MealDetailView: View {
     foodMaster.category = "肉類"
     foodMaster.createdAt = Date()
     
-    // FoodRecord作成
     let foodRecord = FoodRecord(context: context)
     foodRecord.id = UUID()
     foodRecord.date = Date()
@@ -217,10 +260,11 @@ struct MealDetailView: View {
     foodRecord.actualSodium = 0.04
     foodRecord.foodMaster = foodMaster
     
+    try? context.save()
+    
     return MealDetailView(
         mealType: "間食",
-        selectedDate: Date(),
-        foods: [foodRecord]
+        selectedDate: Date()
     )
     .environment(\.managedObjectContext, context)
 }

@@ -132,7 +132,6 @@ struct FoodHomeView: View {
                 MealDetailView(
                     mealType: selectedMealType,
                     selectedDate: selectedDate,
-                    foods: filteredFoodsForMeal(selectedMealType)
                 )
                 .environment(\.managedObjectContext, viewContext)
             }
