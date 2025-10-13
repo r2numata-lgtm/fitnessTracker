@@ -1,5 +1,5 @@
 //
-//  MealDetailView.swift - 重複定義削除版
+//  MealDetailView.swift - 栄養素表示更新版
 //  FitnessTracker
 //
 
@@ -86,16 +86,7 @@ struct MealDetailView: View {
     
     private var totalNutritionSection: some View {
         Section("合計") {
-            HStack {
-                Text("カロリー")
-                Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))")
-                    .fontWeight(.bold)
-                    .foregroundColor(.orange)
-                Text("kcal")
-                    .foregroundColor(.secondary)
-            }
-            
+            // たんぱく質
             HStack {
                 Text("たんぱく質")
                 Spacer()
@@ -106,6 +97,18 @@ struct MealDetailView: View {
                     .foregroundColor(.secondary)
             }
             
+            // 炭水化物
+            HStack {
+                Text("炭水化物")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCarbohydrates }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
+            
+            // 脂質
             HStack {
                 Text("脂質")
                 Spacer()
@@ -116,13 +119,49 @@ struct MealDetailView: View {
                     .foregroundColor(.secondary)
             }
             
+            // 糖質
             HStack {
-                Text("炭水化物")
+                Text("糖質")
                 Spacer()
-                Text("\(Int(foods.reduce(0) { $0 + $1.actualCarbohydrates }))")
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualSugar }))")
                     .fontWeight(.bold)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.purple)
                 Text("g")
+                    .foregroundColor(.secondary)
+            }
+            
+            // 食物繊維
+            HStack {
+                Text("食物繊維")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualFiber }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.green)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
+            
+            // 食塩相当量（sodiumをgで表示）
+            HStack {
+                Text("食塩相当量")
+                Spacer()
+                Text(String(format: "%.1f", foods.reduce(0) { $0 + $1.actualSodium }))
+                    .fontWeight(.bold)
+                    .foregroundColor(.gray)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
+            
+            Divider()
+            
+            // カロリーは最後に表示
+            HStack {
+                Text("カロリー")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.orange)
+                Text("kcal")
                     .foregroundColor(.secondary)
             }
         }
@@ -159,7 +198,7 @@ struct MealDetailView: View {
     foodMaster.carbohydrates = 0.0
     foodMaster.sugar = 0.0
     foodMaster.fiber = 0.0
-    foodMaster.sodium = 40.0
+    foodMaster.sodium = 0.04
     foodMaster.category = "肉類"
     foodMaster.createdAt = Date()
     
@@ -174,6 +213,8 @@ struct MealDetailView: View {
     foodRecord.actualFat = 1.9
     foodRecord.actualCarbohydrates = 0.0
     foodRecord.actualSugar = 0.0
+    foodRecord.actualFiber = 0.0
+    foodRecord.actualSodium = 0.04
     foodRecord.foodMaster = foodMaster
     
     return MealDetailView(

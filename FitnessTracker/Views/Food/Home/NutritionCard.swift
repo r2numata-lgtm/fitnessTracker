@@ -103,10 +103,10 @@ struct NutritionCard: View {
                 )
                 
                 NutritionItem(
-                    label: "ナトリウム",
+                    label: "食塩相当量",
                     value: totalNutrition.sodium,
-                    unit: "mg",
-                    color: .cyan
+                    unit: "g",  // mgからgに変更
+                    color: .gray
                 )
             }
         }

@@ -1,7 +1,6 @@
 //
-//  FoodDetailInputView.swift
+//  FoodDetailInputView.swift - 完全版
 //  FitnessTracker
-//  Views/Food/AddFood/FoodSearch/Detail/FoodDetailInputView.swift
 //
 
 import SwiftUI
@@ -21,13 +20,15 @@ struct FoodDetailInputView: View {
     @State private var servingMultiplier: Double = 1.0
     @State private var isCustomMode: Bool
     
-    // 手動入力用
-    @State private var customFoodName: String = ""      // ← 追加
+    // 手動入力用（全栄養素）
+    @State private var customFoodName: String = ""
     @State private var customCalories: Double = 0
     @State private var customProtein: Double = 0
     @State private var customFat: Double = 0
     @State private var customCarbohydrates: Double = 0
-    @State private var customSugar: Double = 0          // ← 追加
+    @State private var customSugar: Double = 0
+    @State private var customFiber: Double = 0
+    @State private var customSodium: Double = 0
     
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -52,7 +53,18 @@ struct FoodDetailInputView: View {
         }
         
         _isCustomMode = State(initialValue: nutrition.calories == 0)
-        _customFoodName = State(initialValue: name)      // ← 追加
+        _customFoodName = State(initialValue: name)
+        
+        // 既存データがあれば初期値として設定
+        if nutrition.calories > 0 {
+            _customCalories = State(initialValue: nutrition.calories)
+            _customProtein = State(initialValue: nutrition.protein)
+            _customFat = State(initialValue: nutrition.fat)
+            _customCarbohydrates = State(initialValue: nutrition.carbohydrates)
+            _customSugar = State(initialValue: nutrition.sugar)
+            _customFiber = State(initialValue: nutrition.fiber ?? 0)
+            _customSodium = State(initialValue: nutrition.sodium ?? 0)
+        }
         
         print("=== FoodDetailInputView 初期化 ===")
         print("食材: \(name)")
@@ -84,7 +96,6 @@ struct FoodDetailInputView: View {
                 Button("OK") {
                     if alertMessage.contains("成功") || alertMessage.contains("保存") {
                         onSaved?()
-                        // モーダルを複数階層閉じる
                         presentationMode.wrappedValue.dismiss()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             presentationMode.wrappedValue.dismiss()
@@ -116,7 +127,6 @@ struct FoodDetailInputView: View {
         Section("商品情報") {
             VStack(alignment: .leading, spacing: 8) {
                 if isCustomMode {
-                    // ← 追加：手動入力モードでは食材名を編集可能に
                     TextField("食材名", text: $customFoodName)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .font(.headline)
@@ -207,6 +217,15 @@ struct FoodDetailInputView: View {
             NutritionDisplayRow(label: "たんぱく質", value: safeInt(adjustedNutrition.protein), unit: "g")
             NutritionDisplayRow(label: "脂質", value: safeInt(adjustedNutrition.fat), unit: "g")
             NutritionDisplayRow(label: "炭水化物", value: safeInt(adjustedNutrition.carbohydrates), unit: "g")
+            NutritionDisplayRow(label: "糖質", value: safeInt(adjustedNutrition.sugar), unit: "g")
+            
+            if let fiber = adjustedNutrition.fiber, fiber > 0 {
+                NutritionDisplayRow(label: "食物繊維", value: safeInt(fiber), unit: "g")
+            }
+            
+            if let sodium = adjustedNutrition.sodium, sodium > 0 {
+                NutritionDisplayRow(label: "食塩相当量", value: String(format: "%.1f", sodium), unit: "g")
+            }
         }
     }
     
@@ -214,9 +233,11 @@ struct FoodDetailInputView: View {
         Section("栄養情報（手動入力）") {
             NutritionInputField(label: "カロリー", value: $customCalories, unit: "kcal")
             NutritionInputField(label: "たんぱく質", value: $customProtein, unit: "g")
-            NutritionInputField(label: "脂質", value: $customFat, unit: "g")
             NutritionInputField(label: "炭水化物", value: $customCarbohydrates, unit: "g")
-            NutritionInputField(label: "糖質", value: $customSugar, unit: "g")  // ← 追加
+            NutritionInputField(label: "脂質", value: $customFat, unit: "g")
+            NutritionInputField(label: "糖質", value: $customSugar, unit: "g")
+            NutritionInputField(label: "食物繊維", value: $customFiber, unit: "g")
+            NutritionInputField(label: "食塩相当量", value: $customSodium, unit: "g")
         }
     }
     
@@ -363,7 +384,9 @@ struct FoodDetailInputView: View {
                     fat: customFat,
                     carbohydrates: customCarbohydrates,
                     sugar: customSugar,
-                    servingSize: 100
+                    servingSize: 100,
+                    fiber: customFiber > 0 ? customFiber : nil,
+                    sodium: customSodium > 0 ? customSodium : nil
                 )
                 amountToSave = 100
                 
@@ -410,12 +433,10 @@ struct FoodDetailInputView: View {
                 date: selectedDate
             )
             
-            // Core Dataを即座に保存
             try viewContext.save()
             
             FavoriteFoodManager.shared.addFavorite(foodItemToSave)
             
-            // 即座に画面を閉じる
             presentationMode.wrappedValue.dismiss()
             
         } catch {
@@ -446,6 +467,7 @@ struct NutritionInputField: View {
         }
     }
 }
+
 
 #Preview {
     FoodDetailInputView(

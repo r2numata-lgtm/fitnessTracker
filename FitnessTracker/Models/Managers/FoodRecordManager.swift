@@ -1,9 +1,6 @@
 //
 //  FoodRecordManager.swift
 //  FitnessTracker
-//  Models/Managers/FoodRecordManager.swift
-//
-//  Created by 沼田蓮二朗 on 2025/09/07.
 //
 
 import Foundation
@@ -46,6 +43,8 @@ class FoodRecordManager {
         record.actualFat = actualNutrition.fat
         record.actualCarbohydrates = actualNutrition.carbohydrates
         record.actualSugar = actualNutrition.sugar
+        record.actualFiber = actualNutrition.fiber ?? 0.0      // 追加
+        record.actualSodium = actualNutrition.sodium ?? 0.0    // 追加
         record.foodMaster = foodMaster
         
         try context.save()
@@ -86,32 +85,5 @@ class FoodRecordManager {
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
         return getFoodRecords(from: startOfDay, to: endOfDay, context: context)
-    }
-    
-    /// 食事タイプ別に取得
-    static func getFoodRecords(
-        mealType: MealType,
-        date: Date,
-        context: NSManagedObjectContext
-    ) -> [FoodRecord] {
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-        
-        let fetchRequest: NSFetchRequest<FoodRecord> = FoodRecord.fetchRequest()
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "date >= %@ AND date < %@", startOfDay as NSDate, endOfDay as NSDate),
-            NSPredicate(format: "mealType == %@", mealType.rawValue)
-        ])
-        fetchRequest.sortDescriptors = [
-            NSSortDescriptor(keyPath: \FoodRecord.date, ascending: true)
-        ]
-        
-        do {
-            return try context.fetch(fetchRequest)
-        } catch {
-            print("⚠️ 食事記録取得エラー: \(error)")
-            return []
-        }
     }
 }

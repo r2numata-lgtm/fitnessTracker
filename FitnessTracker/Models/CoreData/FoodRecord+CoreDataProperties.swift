@@ -2,8 +2,6 @@
 //  FoodRecord+CoreDataProperties.swift
 //  FitnessTracker
 //
-//  Created by 沼田蓮二朗 on 2025/09/07.
-//
 
 import Foundation
 import CoreData
@@ -23,6 +21,8 @@ extension FoodRecord {
     @NSManaged public var actualFat: Double
     @NSManaged public var actualCarbohydrates: Double
     @NSManaged public var actualSugar: Double
+    @NSManaged public var actualFiber: Double      // 追加
+    @NSManaged public var actualSodium: Double     // 追加
     @NSManaged public var foodMaster: FoodMaster?
 
 }
@@ -37,7 +37,9 @@ extension FoodRecord : Identifiable {
             fat: actualFat,
             carbohydrates: actualCarbohydrates,
             sugar: actualSugar,
-            servingSize: 100.0 * servingMultiplier
+            servingSize: 100.0 * servingMultiplier,
+            fiber: actualFiber > 0 ? actualFiber : nil,
+            sodium: actualSodium > 0 ? actualSodium : nil
         )
     }
     
