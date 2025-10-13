@@ -47,12 +47,13 @@ class SharedProductManager: ObservableObject {
         return product
     }
     
-    /// 食材名で検索（標準データベース + ユーザー投稿データ）
+    /// 商品名で共有商品を検索（改善版）
     func searchByName(_ name: String) async throws -> [SharedProduct] {
-        var allResults: [SharedProduct] = []
+        print("=== ユーザーDB検索（商品名）===")
+        print("検索名: \(name)")
         
-        let normalizedSearchTerm = name.lowercased()
-            .applyingTransform(.hiraganaToKatakana, reverse: false) ?? name
+        let normalizedSearchTerm = normalizeForSearch(name)
+        print("正規化後: \(normalizedSearchTerm)")
         
         // 1. 標準食品データベースから検索
         let standardQuery = db.collection("standard_foods")
@@ -60,11 +61,11 @@ class SharedProductManager: ObservableObject {
             .limit(to: 50)
         
         let standardSnapshot = try await standardQuery.getDocuments()
+        var allResults: [SharedProduct] = []
+        
         let standardProducts = try standardSnapshot.documents.compactMap { document -> SharedProduct? in
             let product = try document.data(as: SharedProduct.self)
-            let normalizedProductName = product.name.lowercased()
-                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
-            
+            let normalizedProductName = normalizeForSearch(product.name)
             return normalizedProductName.contains(normalizedSearchTerm) ? product : nil
         }
         
@@ -78,15 +79,13 @@ class SharedProductManager: ObservableObject {
         let userSnapshot = try await userQuery.getDocuments()
         let userProducts = try userSnapshot.documents.compactMap { document -> SharedProduct? in
             let product = try document.data(as: SharedProduct.self)
-            let normalizedProductName = product.name.lowercased()
-                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
-            
+            let normalizedProductName = normalizeForSearch(product.name)
             return normalizedProductName.contains(normalizedSearchTerm) ? product : nil
         }
         
         allResults.append(contentsOf: userProducts)
         
-        // 信頼度順にソート（標準データが優先される）
+        // 信頼度順にソート
         return allResults.sorted { $0.verificationCount > $1.verificationCount }
     }
     
@@ -95,9 +94,8 @@ class SharedProductManager: ObservableObject {
         print("=== 標準食品DB検索 ===")
         print("検索名: \(name)")
         
-        let normalizedSearchTerm = name.lowercased()
-            .applyingTransform(.hiraganaToKatakana, reverse: false) ?? name
-        
+        // 検索語を正規化（空白と記号を除去）
+        let normalizedSearchTerm = normalizeForSearch(name)
         print("正規化後: \(normalizedSearchTerm)")
         
         // standard_foodsコレクションから検索
@@ -111,8 +109,7 @@ class SharedProductManager: ObservableObject {
             let product = try document.data(as: SharedProduct.self)
             
             // 商品名を正規化して比較
-            let normalizedProductName = product.name.lowercased()
-                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
+            let normalizedProductName = normalizeForSearch(product.name)
             
             // 検索語が商品名に含まれているかチェック
             return normalizedProductName.contains(normalizedSearchTerm) ? product : nil
@@ -120,6 +117,23 @@ class SharedProductManager: ObservableObject {
         
         print("標準DB検索結果: \(products.count)件")
         return products
+    }
+
+    /// 検索用に文字列を正規化
+    private func normalizeForSearch(_ text: String) -> String {
+        return text
+            .lowercased()
+            .replacingOccurrences(of: "　", with: "")  // 全角スペース除去
+            .replacingOccurrences(of: " ", with: "")   // 半角スペース除去
+            .replacingOccurrences(of: "＜", with: "")
+            .replacingOccurrences(of: "＞", with: "")
+            .replacingOccurrences(of: "（", with: "")
+            .replacingOccurrences(of: "）", with: "")
+            .replacingOccurrences(of: "<", with: "")
+            .replacingOccurrences(of: ">", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+            .applyingTransform(.hiraganaToKatakana, reverse: false) ?? text
     }
     
     /// 新しい商品を投稿
