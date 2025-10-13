@@ -3,14 +3,13 @@
 //  FitnessTracker
 //  Models/DataModels/Food/SharedProduct.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import Foundation
+import FirebaseFirestore
 
 // MARK: - 共有商品データ
 struct SharedProduct: Identifiable, Codable {
-    let id: String
+    let id: String  // 非オプショナルに戻す
     let barcode: String?
     let name: String
     let brand: String?
@@ -20,8 +19,8 @@ struct SharedProduct: Identifiable, Codable {
     let imageURL: String?
     let description: String?
     let contributorId: String
-    let createdAt: Date
-    let updatedAt: Date
+    let createdAt: Date?
+    let updatedAt: Date?
     let verificationCount: Int
     let reportCount: Int
     let isVerified: Bool
@@ -35,6 +34,34 @@ struct SharedProduct: Identifiable, Codable {
         return max(0.0, min(1.0, baseScore + verificationBonus - reportPenalty + verifiedBonus))
     }
     
+    // カスタムデコーダー
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // idがnilの場合はUUIDを生成
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.barcode = try container.decodeIfPresent(String.self, forKey: .barcode)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.brand = try container.decodeIfPresent(String.self, forKey: .brand)
+        self.nutrition = try container.decode(NutritionInfo.self, forKey: .nutrition)
+        self.category = try container.decodeIfPresent(String.self, forKey: .category)
+        self.packageSize = try container.decodeIfPresent(String.self, forKey: .packageSize)
+        self.imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.contributorId = try container.decode(String.self, forKey: .contributorId)
+        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        self.verificationCount = try container.decodeIfPresent(Int.self, forKey: .verificationCount) ?? 0
+        self.reportCount = try container.decodeIfPresent(Int.self, forKey: .reportCount) ?? 0
+        self.isVerified = try container.decodeIfPresent(Bool.self, forKey: .isVerified) ?? false
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, barcode, name, brand, nutrition, category
+        case packageSize, imageURL, description, contributorId
+        case createdAt, updatedAt, verificationCount, reportCount, isVerified
+    }
+    
     init(
         barcode: String? = nil,
         name: String,
@@ -44,7 +71,8 @@ struct SharedProduct: Identifiable, Codable {
         packageSize: String? = nil,
         imageURL: String? = nil,
         description: String? = nil,
-        contributorId: String
+        contributorId: String,
+        verificationCount: Int = 0
     ) {
         self.id = UUID().uuidString
         self.barcode = barcode
@@ -58,7 +86,7 @@ struct SharedProduct: Identifiable, Codable {
         self.contributorId = contributorId
         self.createdAt = Date()
         self.updatedAt = Date()
-        self.verificationCount = 0
+        self.verificationCount = verificationCount
         self.reportCount = 0
         self.isVerified = false
     }

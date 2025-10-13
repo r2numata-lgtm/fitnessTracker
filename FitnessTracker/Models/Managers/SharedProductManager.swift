@@ -47,21 +47,63 @@ class SharedProductManager: ObservableObject {
         return product
     }
     
-    /// 商品名で共有商品を検索（改善版：ひらがな・カタカナ・漢字を区別しない）
+    /// 食材名で検索（標準データベース + ユーザー投稿データ）
     func searchByName(_ name: String) async throws -> [SharedProduct] {
-        print("=== ユーザーDB検索（商品名）===")
+        var allResults: [SharedProduct] = []
+        
+        let normalizedSearchTerm = name.lowercased()
+            .applyingTransform(.hiraganaToKatakana, reverse: false) ?? name
+        
+        // 1. 標準食品データベースから検索
+        let standardQuery = db.collection("standard_foods")
+            .order(by: "verificationCount", descending: true)
+            .limit(to: 50)
+        
+        let standardSnapshot = try await standardQuery.getDocuments()
+        let standardProducts = try standardSnapshot.documents.compactMap { document -> SharedProduct? in
+            let product = try document.data(as: SharedProduct.self)
+            let normalizedProductName = product.name.lowercased()
+                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
+            
+            return normalizedProductName.contains(normalizedSearchTerm) ? product : nil
+        }
+        
+        allResults.append(contentsOf: standardProducts)
+        
+        // 2. ユーザー投稿データベースから検索
+        let userQuery = db.collection("shared_products")
+            .order(by: "verificationCount", descending: true)
+            .limit(to: 50)
+        
+        let userSnapshot = try await userQuery.getDocuments()
+        let userProducts = try userSnapshot.documents.compactMap { document -> SharedProduct? in
+            let product = try document.data(as: SharedProduct.self)
+            let normalizedProductName = product.name.lowercased()
+                .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
+            
+            return normalizedProductName.contains(normalizedSearchTerm) ? product : nil
+        }
+        
+        allResults.append(contentsOf: userProducts)
+        
+        // 信頼度順にソート（標準データが優先される）
+        return allResults.sorted { $0.verificationCount > $1.verificationCount }
+    }
+    
+    /// 標準食品データベースから検索
+    func searchInStandardFoods(_ name: String) async throws -> [SharedProduct] {
+        print("=== 標準食品DB検索 ===")
         print("検索名: \(name)")
         
-        // ← 改善：正規化した検索語を生成
         let normalizedSearchTerm = name.lowercased()
             .applyingTransform(.hiraganaToKatakana, reverse: false) ?? name
         
         print("正規化後: \(normalizedSearchTerm)")
         
-        // 全件取得して、クライアント側でフィルタリング（柔軟な検索のため）
-        let query = db.collection("shared_products")
+        // standard_foodsコレクションから検索
+        let query = db.collection("standard_foods")
             .order(by: "verificationCount", descending: true)
-            .limit(to: 100)  // 最大100件
+            .limit(to: 100)
         
         let snapshot = try await query.getDocuments()
         
@@ -72,15 +114,11 @@ class SharedProductManager: ObservableObject {
             let normalizedProductName = product.name.lowercased()
                 .applyingTransform(.hiraganaToKatakana, reverse: false) ?? product.name
             
-            // 部分一致で検索
-            if normalizedProductName.contains(normalizedSearchTerm) {
-                return product
-            }
-            
-            return nil
+            // 検索語が商品名に含まれているかチェック
+            return normalizedProductName.contains(normalizedSearchTerm) ? product : nil
         }
         
-        print("商品名検索結果: \(products.count)件")
+        print("標準DB検索結果: \(products.count)件")
         return products
     }
     
@@ -90,7 +128,7 @@ class SharedProductManager: ObservableObject {
         print("投稿商品: \(product.name)")
         
         try await db.collection("shared_products")
-            .document(product.id)
+            .document(product.id)  // もう??は不要
             .setData(from: product)
         
         print("商品投稿完了: \(product.name)")

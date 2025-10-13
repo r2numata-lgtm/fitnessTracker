@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Models/Managers/IntegratedSearchManager.swift
 //
-//  Created by 沼田蓮二朗 on 2025/09/06.
-//
 
 import Foundation
 
@@ -46,22 +44,32 @@ class IntegratedSearchManager {
         return nil
     }
     
-    /// 食材名統合検索（ユーザーDBのみ）
+    /// 食材名統合検索（標準データベース + ユーザー投稿データベース）
     func searchFoodByName(_ name: String) async -> [FoodSearchResult] {
         print("=== 統合食材検索開始 ===")
         print("検索名: \(name)")
         
         var results: [FoodSearchResult] = []
         
-        // ユーザー投稿データベースのみから検索
+        // 1. 標準食品データベースから検索
         do {
-            let sharedProducts = try await SharedProductManager.shared.searchByName(name)
-            results.append(contentsOf: sharedProducts.map { .shared($0) })
+            let standardProducts = try await SharedProductManager.shared.searchInStandardFoods(name)
+            results.append(contentsOf: standardProducts.map { .shared($0) })
+            print("✅ 標準DBから \(standardProducts.count) 件取得")
+        } catch {
+            print("⚠️ 標準DB検索エラー: \(error)")
+        }
+        
+        // 2. ユーザー投稿データベースから検索
+        do {
+            let userProducts = try await SharedProductManager.shared.searchByName(name)
+            results.append(contentsOf: userProducts.map { .shared($0) })
+            print("✅ ユーザーDBから \(userProducts.count) 件取得")
         } catch {
             print("⚠️ ユーザーDB検索エラー: \(error)")
         }
         
-        // 信頼度順ソート
+        // 信頼度順ソート（標準データが優先される）
         let sortedResults = results.sorted { $0.trustScore > $1.trustScore }
         
         print("✅ 統合検索結果: \(sortedResults.count)件")
@@ -144,6 +152,7 @@ class IntegratedSearchManager {
 }
 
 // MARK: - 検索結果の統合型
+// MARK: - 検索結果の統合型
 enum FoodSearchResult: Identifiable {
     case local(FoodItem)
     case shared(SharedProduct)
@@ -153,7 +162,7 @@ enum FoodSearchResult: Identifiable {
         case .local(let food):
             return "local_\(food.id)"
         case .shared(let product):
-            return "shared_\(product.id)"
+            return "shared_\(product.id)"  // もう??は不要
         }
     }
     
