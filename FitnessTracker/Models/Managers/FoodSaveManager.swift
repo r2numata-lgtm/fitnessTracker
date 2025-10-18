@@ -83,28 +83,6 @@ class FoodSaveManager {
         )
     }
     
-    /// BarcodeProductをCore Dataに保存
-    static func saveBarcodeProduct(
-        context: NSManagedObjectContext,
-        product: BarcodeProduct,
-        amount: Double,
-        mealType: MealType,
-        date: Date,
-        photo: Data? = nil
-    ) throws {
-        let servingMultiplier = amount / 100.0
-        
-        try FoodRecordManager.saveFoodRecord(
-            context: context,
-            name: product.name,
-            nutrition: product.nutrition,
-            servingMultiplier: servingMultiplier,
-            mealType: mealType,
-            date: date,
-            category: product.category,
-            photo: photo
-        )
-    }
     
     /// 写真解析結果をCore Dataに保存
     static func savePhotoAnalysisResult(

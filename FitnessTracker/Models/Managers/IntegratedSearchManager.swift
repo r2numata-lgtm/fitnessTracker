@@ -16,41 +16,7 @@ class IntegratedSearchManager {
     
     private init() {}
     
-    // MARK: - バーコード検索
-    
-    /// バーコード統合検索（ユーザーDB → OpenFoodFacts API の順）
-    func searchProductByBarcode(_ barcode: String) async throws -> BarcodeProduct? {
-        print("=== 統合バーコード検索開始 ===")
-        print("バーコード: \(barcode)")
-        
-        // 1. ユーザー投稿データベースを最初に検索
-        do {
-            if let sharedProduct = try await sharedProducts.searchByBarcode(barcode) {
-                print("✅ ユーザーDBで発見: \(sharedProduct.name)")
-                return convertToBarcodeProduct(from: sharedProduct)
-            }
-        } catch {
-            print("⚠️ ユーザーDB検索エラー: \(error)")
-        }
-        
-        // 2. OpenFoodFacts APIで検索
-        do {
-            if let apiProduct = try await BarcodeAPIManager.shared.searchProduct(barcode: barcode) {
-                print("✅ OpenFoodFactsで発見: \(apiProduct.name)")
-                
-                // 見つかった商品をユーザーDBに自動保存
-                await saveToUserDatabase(apiProduct: apiProduct, barcode: barcode)
-                
-                return apiProduct
-            }
-        } catch {
-            print("⚠️ OpenFoodFacts検索エラー: \(error)")
-        }
-        
-        print("❌ バーコード検索：すべてのソースで見つかりませんでした")
-        return nil
-    }
-    
+
     // MARK: - 食材名検索
     
     /// 食材名統合検索（標準データベース + ユーザー投稿データベース）
@@ -116,50 +82,6 @@ class IntegratedSearchManager {
         }
     }
     
-    // MARK: - Private Methods
-    
-    private func convertToBarcodeProduct(from sharedProduct: SharedProduct) -> BarcodeProduct {
-        return BarcodeProduct(
-            barcode: sharedProduct.barcode ?? "",
-            name: sharedProduct.name,
-            brand: sharedProduct.brand,
-            nutrition: sharedProduct.nutrition,
-            imageURL: sharedProduct.imageURL,
-            category: sharedProduct.category,
-            packageSize: sharedProduct.packageSize,
-            description: "信頼度: \(Int(sharedProduct.trustScore * 100))% | 投稿データ"
-        )
-    }
-    
-    private func saveToUserDatabase(apiProduct: BarcodeProduct, barcode: String) async {
-        do {
-            // 既に同じバーコードの商品が存在するかチェック
-            if let existingProduct = try await sharedProducts.searchByBarcode(barcode) {
-                print("⚠️ 既にユーザーDBに存在するためスキップ: \(existingProduct.name)")
-                return
-            }
-            
-            let userId = try await sharedProducts.authenticateAnonymously()
-            
-            let sharedProduct = SharedProduct(
-                barcode: barcode,
-                name: apiProduct.name,
-                brand: apiProduct.brand,
-                nutrition: apiProduct.nutrition,
-                category: apiProduct.category,
-                packageSize: apiProduct.packageSize,
-                imageURL: apiProduct.imageURL,
-                description: "OpenFoodFactsより自動取得",
-                contributorId: userId
-            )
-            
-            try await sharedProducts.submitProduct(sharedProduct)
-            print("✅ API取得商品をユーザーDBに自動保存")
-            
-        } catch {
-            print("⚠️ API商品の自動保存失敗: \(error)")
-        }
-    }
 }
 
 // MARK: - 検索結果の統合型

@@ -379,6 +379,23 @@ struct ImagePickerView: UIViewControllerRepresentable {
     }
 }
 
+private struct HintRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.blue)
+                .frame(width: 20)
+            
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
 // 写真解析結果画面（仮実装）
 struct PhotoResultView: View {
     @Environment(\.presentationMode) var presentationMode
