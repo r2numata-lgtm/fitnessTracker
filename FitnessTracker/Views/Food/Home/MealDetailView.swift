@@ -108,76 +108,87 @@ struct MealDetailView: View {
     
     private var totalNutritionSection: some View {
         Section("合計") {
+            // カロリー
+            HStack {
+                Text("カロリー")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCalories }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.orange)
+                Text("kcal")
+                    .foregroundColor(.secondary)
+            }
+            
+            // たんぱく質
             HStack {
                 Text("たんぱく質")
                 Spacer()
-                Text("\(Int(totalProtein))")
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualProtein }))")
                     .fontWeight(.bold)
                     .foregroundColor(.red)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
+            // 脂質
+            HStack {
+                Text("脂質")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualFat }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.orange)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
+            
+            // 炭水化物
             HStack {
                 Text("炭水化物")
                 Spacer()
-                Text("\(Int(totalCarbohydrates))")
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualCarbohydrates }))")
                     .fontWeight(.bold)
                     .foregroundColor(.blue)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            HStack {
-                Text("脂質")
-                Spacer()
-                Text("\(Int(totalFat))")
-                    .fontWeight(.bold)
-                    .foregroundColor(.orange)
-                Text("g")
-                    .foregroundColor(.secondary)
-            }
-            
+            // 糖質
             HStack {
                 Text("糖質")
                 Spacer()
-                Text("\(Int(totalSugar))")
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualSugar }))")
                     .fontWeight(.bold)
                     .foregroundColor(.purple)
                 Text("g")
                     .foregroundColor(.secondary)
             }
             
-            HStack {
-                Text("食物繊維")
-                Spacer()
-                Text("\(Int(totalFiber))")
-                    .fontWeight(.bold)
-                    .foregroundColor(.green)
-                Text("g")
-                    .foregroundColor(.secondary)
+            // 食物繊維
+            let totalFiber = foods.reduce(0.0) { $0 + $1.actualFiber }
+            if totalFiber > 0 {
+                HStack {
+                    Text("食物繊維")
+                    Spacer()
+                    Text("\(totalFiber, specifier: "%.1f")")
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    Text("g")
+                        .foregroundColor(.secondary)
+                }
             }
             
-            HStack {
-                Text("食塩相当量")
-                Spacer()
-                Text(String(format: "%.1f", totalSodium))
-                    .fontWeight(.bold)
-                    .foregroundColor(.gray)
-                Text("g")
-                    .foregroundColor(.secondary)
-            }
-            
-            Divider()
-            
-            HStack {
-                Text("カロリー")
-                Spacer()
-                Text("\(Int(totalCalories))")
-                    .fontWeight(.bold)
-                    .foregroundColor(.orange)
-                Text("kcal")
-                    .foregroundColor(.secondary)
+            // 食塩相当量
+            let totalSodium = foods.reduce(0.0) { $0 + $1.actualSodium }
+            if totalSodium > 0 {
+                HStack {
+                    Text("食塩相当量")
+                    Spacer()
+                    Text("\(totalSodium, specifier: "%.1f")")
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray)
+                    Text("g")
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
@@ -212,19 +223,25 @@ struct MealDetailView: View {
         foods.reduce(0) { $0 + $1.actualSodium }
     }
     
-    // MARK: - Functions
-    
+    // MARK: - 改善版削除処理
     private func deleteFood(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { foods[$0] }.forEach(viewContext.delete)
-            
-            do {
-                try viewContext.save()
-                print("✅ 削除成功")
-            } catch {
-                print("❌ 削除エラー: \(error)")
-                viewContext.rollback()
-            }
+        // 1. 削除対象を特定
+        let foodsToDelete = offsets.map { foods[$0] }
+        
+        // 2. コンテキストから削除
+        for food in foodsToDelete {
+            // リレーションシップを手動で解除
+            food.foodMaster = nil
+            viewContext.delete(food)
+        }
+        
+        // 3. 保存を試みる
+        do {
+            try viewContext.save()
+            print("✅ 削除成功")
+        } catch {
+            print("❌ 削除エラー: \(error.localizedDescription)")
+            viewContext.rollback()
         }
     }
 }

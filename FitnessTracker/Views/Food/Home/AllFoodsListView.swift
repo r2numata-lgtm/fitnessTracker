@@ -105,6 +105,7 @@ struct AllFoodsListView: View {
     
     private var totalNutritionSection: some View {
         Section("合計") {
+            // カロリー
             HStack {
                 Text("カロリー")
                 Spacer()
@@ -115,6 +116,7 @@ struct AllFoodsListView: View {
                     .foregroundColor(.secondary)
             }
             
+            // たんぱく質
             HStack {
                 Text("たんぱく質")
                 Spacer()
@@ -125,6 +127,7 @@ struct AllFoodsListView: View {
                     .foregroundColor(.secondary)
             }
             
+            // 脂質
             HStack {
                 Text("脂質")
                 Spacer()
@@ -135,6 +138,7 @@ struct AllFoodsListView: View {
                     .foregroundColor(.secondary)
             }
             
+            // 炭水化物
             HStack {
                 Text("炭水化物")
                 Spacer()
@@ -144,44 +148,98 @@ struct AllFoodsListView: View {
                 Text("g")
                     .foregroundColor(.secondary)
             }
+            
+            // 糖質
+            HStack {
+                Text("糖質")
+                Spacer()
+                Text("\(Int(foods.reduce(0) { $0 + $1.actualSugar }))")
+                    .fontWeight(.bold)
+                    .foregroundColor(.purple)
+                Text("g")
+                    .foregroundColor(.secondary)
+            }
+            
+            // 食物繊維
+            let totalFiber = foods.reduce(0.0) { $0 + $1.actualFiber }
+            if totalFiber > 0 {
+                HStack {
+                    Text("食物繊維")
+                    Spacer()
+                    Text("\(totalFiber, specifier: "%.1f")")
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    Text("g")
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // 食塩相当量
+            let totalSodium = foods.reduce(0.0) { $0 + $1.actualSodium }
+            if totalSodium > 0 {
+                HStack {
+                    Text("食塩相当量")
+                    Spacer()
+                    Text("\(totalSodium, specifier: "%.1f")")
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray)
+                    Text("g")
+                        .foregroundColor(.secondary)
+                }
+            }
         }
     }
     
     // MARK: - Computed Properties
     
+    // MARK: - Functions
+
     private var dateTitle: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "M月d日(E)の食事"
         formatter.locale = Locale(identifier: "ja_JP")
         return formatter.string(from: selectedDate)
     }
-    
-    // MARK: - Functions
-    
+
     private func handleFoodTap(_ food: FoodRecord) {
-        // Core Dataオブジェクトの最新状態を取得
+        print("=== 食材タップ ===")
+        print("食材名: \(food.foodName)")
+        print("オブジェクトID: \(food.objectID)")
+        
+        // CoreDataから最新の状態を取得
         do {
             if let refreshedFood = try viewContext.existingObject(with: food.objectID) as? FoodRecord {
                 selectedFood = refreshedFood
                 showingFoodDetail = true
+                print("✅ リフレッシュ成功")
+            } else {
+                print("❌ オブジェクトが見つかりません")
             }
         } catch {
-            print("食事データ取得エラー: \(error)")
+            print("❌ リフレッシュエラー: \(error.localizedDescription)")
+            // エラーでも一応試す
             selectedFood = food
             showingFoodDetail = true
         }
     }
-    
+
     private func deleteFood(offsets: IndexSet, from mealFoods: [FoodRecord]) {
+        print("=== 削除開始 ===")
+        
         for index in offsets {
             let foodToDelete = mealFoods[index]
+            print("削除する食材: \(foodToDelete.foodName)")
+            
+            // リレーションシップを解除
+            foodToDelete.foodMaster = nil
             viewContext.delete(foodToDelete)
         }
         
         do {
             try viewContext.save()
+            print("✅ 削除成功")
         } catch {
-            print("削除エラー: \(error)")
+            print("❌ 削除エラー: \(error.localizedDescription)")
             viewContext.rollback()
         }
     }
@@ -236,156 +294,6 @@ struct FoodListRow: View {
     }
 }
 
-// MARK: - 食事詳細シート
-struct FoodRecordDetailSheet: View {
-    @Environment(\.presentationMode) var presentationMode
-    @Environment(\.managedObjectContext) private var viewContext
-    
-    let food: FoodRecord
-    
-    @State private var showingDeleteAlert = false
-    
-    var body: some View {
-        NavigationView {
-            List {
-                // 食材情報
-                Section("食材情報") {
-                    HStack {
-                        Text("食材名")
-                        Spacer()
-                        Text(food.foodName)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("分量")
-                        Spacer()
-                        Text("\(food.servingMultiplier, specifier: "%.1f")人前")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("食事タイプ")
-                        Spacer()
-                        Text(food.mealType)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // 栄養情報
-                Section("栄養情報") {
-                    NutritionDetailRow(
-                        label: "カロリー",
-                        value: food.actualCalories,
-                        unit: "kcal",
-                        color: .orange
-                    )
-                    
-                    NutritionDetailRow(
-                        label: "たんぱく質",
-                        value: food.actualProtein,
-                        unit: "g",
-                        color: .red
-                    )
-                    
-                    NutritionDetailRow(
-                        label: "脂質",
-                        value: food.actualFat,
-                        unit: "g",
-                        color: .orange
-                    )
-                    
-                    NutritionDetailRow(
-                        label: "炭水化物",
-                        value: food.actualCarbohydrates,
-                        unit: "g",
-                        color: .blue
-                    )
-                    
-                    NutritionDetailRow(
-                        label: "糖質",
-                        value: food.actualSugar,
-                        unit: "g",
-                        color: .purple
-                    )
-                }
-                
-                // 写真
-                if let photoData = food.photo,
-                   let uiImage = UIImage(data: photoData) {
-                    Section("写真") {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .cornerRadius(8)
-                    }
-                }
-                
-                // 削除ボタン
-                Section {
-                    Button(role: .destructive) {
-                        showingDeleteAlert = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash")
-                            Text("この記録を削除")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-            .navigationTitle("食事詳細")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("閉じる") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-            .alert("削除確認", isPresented: $showingDeleteAlert) {
-                Button("キャンセル", role: .cancel) { }
-                Button("削除", role: .destructive) {
-                    deleteFood()
-                }
-            } message: {
-                Text("この食事記録を削除しますか?")
-            }
-        }
-    }
-    
-    private func deleteFood() {
-        viewContext.delete(food)
-        
-        do {
-            try viewContext.save()
-            presentationMode.wrappedValue.dismiss()
-        } catch {
-            print("削除エラー: \(error)")
-            viewContext.rollback()
-        }
-    }
-}
-
-// MARK: - 栄養情報詳細行
-struct NutritionDetailRow: View {
-    let label: String
-    let value: Double
-    let unit: String
-    let color: Color
-    
-    var body: some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Text("\(value, specifier: "%.1f")")
-                .fontWeight(.semibold)
-                .foregroundColor(color)
-            Text(unit)
-                .foregroundColor(.secondary)
-        }
-    }
-}
 
 #Preview {
     AllFoodsListView(
