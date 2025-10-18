@@ -14,6 +14,11 @@ struct FitnessTrackerApp: App {
     
     init() {
         FirebaseApp.configure()
+        print("✅ Firebase初期化完了")
+        
+        // ローカル食品データベースを初期化（自動的にロード）
+        _ = LocalFoodsManager.shared
+        print("✅ ローカル食品データベース準備完了")
     }
     
     var body: some Scene {
@@ -36,24 +41,7 @@ struct FitnessTrackerApp: App {
         
         // デフォルト種目の初期化
         ExerciseManager.initializeDefaultExercises(context: persistenceController.container.viewContext)
-        
-        // ✅ テスト投稿削除（以下をすべて削除またはコメントアウト）
-        // testFirebaseConnection() // ← 削除
     }
-    
-    // ✅ この関数全体を削除
-    /*
-    private func testFirebaseConnection() {
-        ...
-    }
-    */
-    
-    // ✅ この関数全体を削除
-    /*
-    private func testSharedProductManager() async {
-        ...
-    }
-    */
     
     private func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in

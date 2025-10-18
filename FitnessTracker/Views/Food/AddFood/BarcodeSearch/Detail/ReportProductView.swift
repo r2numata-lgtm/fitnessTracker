@@ -90,15 +90,10 @@ struct ReportProductView: View {
         Task {
             do {
                 let note = "\(selectedIssue.displayName)\n\(reportReason)"
-                try await SharedProductManager.shared.reportProduct(productId, note: note)
+                try await SharedProductManager.shared.reportProduct(productId, reason: note)
                 
                 await MainActor.run {
                     alertMessage = "報告を送信しました。\nご協力ありがとうございます。"
-                    showingAlert = true
-                }
-            } catch SharedProductError.alreadyActioned {
-                await MainActor.run {
-                    alertMessage = "既にこの商品を報告済みです"
                     showingAlert = true
                 }
             } catch {

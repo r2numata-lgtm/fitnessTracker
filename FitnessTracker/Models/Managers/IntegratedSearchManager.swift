@@ -6,10 +6,17 @@
 
 import Foundation
 
+/// 統合検索マネージャー（ローカル標準食品 + ユーザー投稿）
 class IntegratedSearchManager {
     
     static let shared = IntegratedSearchManager()
+    
+    private let localFoods = LocalFoodsManager.shared
+    private let sharedProducts = SharedProductManager.shared
+    
     private init() {}
+    
+    // MARK: - バーコード検索
     
     /// バーコード統合検索（ユーザーDB → OpenFoodFacts API の順）
     func searchProductByBarcode(_ barcode: String) async throws -> BarcodeProduct? {
@@ -18,7 +25,7 @@ class IntegratedSearchManager {
         
         // 1. ユーザー投稿データベースを最初に検索
         do {
-            if let sharedProduct = try await SharedProductManager.shared.searchByBarcode(barcode) {
+            if let sharedProduct = try await sharedProducts.searchByBarcode(barcode) {
                 print("✅ ユーザーDBで発見: \(sharedProduct.name)")
                 return convertToBarcodeProduct(from: sharedProduct)
             }
@@ -44,6 +51,8 @@ class IntegratedSearchManager {
         return nil
     }
     
+    // MARK: - 食材名検索
+    
     /// 食材名統合検索（標準データベース + ユーザー投稿データベース）
     func searchFoodByName(_ name: String) async -> [FoodSearchResult] {
         print("=== 統合食材検索開始 ===")
@@ -51,18 +60,18 @@ class IntegratedSearchManager {
         
         var results: [FoodSearchResult] = []
         
-        // 1. 標準食品データベースから検索
+        // 1. 標準食品データベースから検索（ローカル・高速）
         do {
-            let standardProducts = try await SharedProductManager.shared.searchInStandardFoods(name)
+            let standardProducts = localFoods.search(name)
             results.append(contentsOf: standardProducts.map { .shared($0) })
             print("✅ 標準DBから \(standardProducts.count) 件取得")
         } catch {
             print("⚠️ 標準DB検索エラー: \(error)")
         }
         
-        // 2. ユーザー投稿データベースから検索
+        // 2. ユーザー投稿データベースから検索（Firestore）
         do {
-            let userProducts = try await SharedProductManager.shared.searchByName(name)
+            let userProducts = try await sharedProducts.searchByName(name)
             results.append(contentsOf: userProducts.map { .shared($0) })
             print("✅ ユーザーDBから \(userProducts.count) 件取得")
         } catch {
@@ -76,6 +85,8 @@ class IntegratedSearchManager {
         return sortedResults
     }
     
+    // MARK: - 手動入力保存
+    
     /// 手動入力された食材をユーザーDBに保存
     func saveManualEntry(
         name: String,
@@ -85,7 +96,7 @@ class IntegratedSearchManager {
         barcode: String? = nil
     ) async throws {
         do {
-            let userId = try await SharedProductManager.shared.authenticateAnonymously()
+            let userId = try await sharedProducts.authenticateAnonymously()
             
             let sharedProduct = SharedProduct(
                 barcode: barcode,
@@ -96,7 +107,7 @@ class IntegratedSearchManager {
                 contributorId: userId
             )
             
-            try await SharedProductManager.shared.submitProduct(sharedProduct)
+            try await sharedProducts.submitProduct(sharedProduct)
             print("✅ 手動入力をユーザーDBに保存: \(name)")
             
         } catch {
@@ -123,12 +134,12 @@ class IntegratedSearchManager {
     private func saveToUserDatabase(apiProduct: BarcodeProduct, barcode: String) async {
         do {
             // 既に同じバーコードの商品が存在するかチェック
-            if let existingProduct = try await SharedProductManager.shared.searchByBarcode(barcode) {
+            if let existingProduct = try await sharedProducts.searchByBarcode(barcode) {
                 print("⚠️ 既にユーザーDBに存在するためスキップ: \(existingProduct.name)")
                 return
             }
             
-            let userId = try await SharedProductManager.shared.authenticateAnonymously()
+            let userId = try await sharedProducts.authenticateAnonymously()
             
             let sharedProduct = SharedProduct(
                 barcode: barcode,
@@ -142,7 +153,7 @@ class IntegratedSearchManager {
                 contributorId: userId
             )
             
-            try await SharedProductManager.shared.submitProduct(sharedProduct)
+            try await sharedProducts.submitProduct(sharedProduct)
             print("✅ API取得商品をユーザーDBに自動保存")
             
         } catch {
@@ -151,7 +162,6 @@ class IntegratedSearchManager {
     }
 }
 
-// MARK: - 検索結果の統合型
 // MARK: - 検索結果の統合型
 enum FoodSearchResult: Identifiable {
     case local(FoodItem)
@@ -162,7 +172,7 @@ enum FoodSearchResult: Identifiable {
         case .local(let food):
             return "local_\(food.id)"
         case .shared(let product):
-            return "shared_\(product.id)"  // もう??は不要
+            return "shared_\(product.id)"
         }
     }
     

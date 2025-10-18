@@ -1,15 +1,13 @@
 //
 //  SharedProduct.swift
 //  FitnessTracker
-//  Models/DataModels/Food/SharedProduct.swift
 //
 
 import Foundation
 import FirebaseFirestore
 
-// MARK: - 共有商品データ
 struct SharedProduct: Identifiable, Codable {
-    let id: String  // 非オプショナルに戻す
+    let id: String
     let barcode: String?
     let name: String
     let brand: String?
@@ -25,6 +23,7 @@ struct SharedProduct: Identifiable, Codable {
     let reportCount: Int
     let isVerified: Bool
     
+    // 信頼スコア
     var trustScore: Double {
         let baseScore = 0.5
         let verificationBonus = min(Double(verificationCount) * 0.1, 0.4)
@@ -34,11 +33,10 @@ struct SharedProduct: Identifiable, Codable {
         return max(0.0, min(1.0, baseScore + verificationBonus - reportPenalty + verifiedBonus))
     }
     
-    // カスタムデコーダー
+    // カスタムデコーダー（JSON/Firestore両対応）
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // idがnilの場合はUUIDを生成
         self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         self.barcode = try container.decodeIfPresent(String.self, forKey: .barcode)
         self.name = try container.decode(String.self, forKey: .name)
@@ -49,8 +47,22 @@ struct SharedProduct: Identifiable, Codable {
         self.imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
         self.description = try container.decodeIfPresent(String.self, forKey: .description)
         self.contributorId = try container.decode(String.self, forKey: .contributorId)
-        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
-        self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        
+        // 日付のデコード（ISO8601文字列 or Timestamp対応）
+        if let dateString = try? container.decode(String.self, forKey: .createdAt) {
+            let formatter = ISO8601DateFormatter()
+            self.createdAt = formatter.date(from: dateString)
+        } else {
+            self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        }
+        
+        if let dateString = try? container.decode(String.self, forKey: .updatedAt) {
+            let formatter = ISO8601DateFormatter()
+            self.updatedAt = formatter.date(from: dateString)
+        } else {
+            self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        }
+        
         self.verificationCount = try container.decodeIfPresent(Int.self, forKey: .verificationCount) ?? 0
         self.reportCount = try container.decodeIfPresent(Int.self, forKey: .reportCount) ?? 0
         self.isVerified = try container.decodeIfPresent(Bool.self, forKey: .isVerified) ?? false
@@ -62,6 +74,7 @@ struct SharedProduct: Identifiable, Codable {
         case createdAt, updatedAt, verificationCount, reportCount, isVerified
     }
     
+    // 通常のイニシャライザ
     init(
         barcode: String? = nil,
         name: String,
@@ -71,8 +84,7 @@ struct SharedProduct: Identifiable, Codable {
         packageSize: String? = nil,
         imageURL: String? = nil,
         description: String? = nil,
-        contributorId: String,
-        verificationCount: Int = 0
+        contributorId: String
     ) {
         self.id = UUID().uuidString
         self.barcode = barcode
@@ -86,30 +98,8 @@ struct SharedProduct: Identifiable, Codable {
         self.contributorId = contributorId
         self.createdAt = Date()
         self.updatedAt = Date()
-        self.verificationCount = verificationCount
+        self.verificationCount = 0
         self.reportCount = 0
         self.isVerified = false
-    }
-}
-
-// MARK: - 投稿リクエスト
-struct ProductSubmissionRequest: Codable {
-    let product: SharedProduct
-    let submissionNote: String?
-    let imageData: Data?
-}
-
-// MARK: - 検証・報告アクション
-struct ProductAction: Codable {
-    let productId: String
-    let userId: String
-    let actionType: ActionType
-    let note: String?
-    let timestamp: Date
-    
-    enum ActionType: String, Codable {
-        case verify = "verify"
-        case report = "report"
-        case update = "update"
     }
 }

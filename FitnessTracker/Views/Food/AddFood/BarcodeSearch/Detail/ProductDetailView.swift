@@ -228,11 +228,6 @@ struct ProductDetailView: View {
                     alertMessage = "確認ありがとうございます！\nデータの信頼度が向上しました。"
                     showingAlert = true
                 }
-            } catch SharedProductError.alreadyActioned {
-                await MainActor.run {
-                    alertMessage = "既にこの商品を確認済みです"
-                    showingAlert = true
-                }
             } catch {
                 await MainActor.run {
                     alertMessage = "確認の送信に失敗しました"
