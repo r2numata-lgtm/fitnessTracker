@@ -137,8 +137,7 @@ struct FoodHomeView: View {
             }
             .sheet(isPresented: $showingAllFoodsList) {
                 AllFoodsListView(
-                    selectedDate: selectedDate,
-                    foods: Array(filteredFoodsForDay)
+                    selectedDate: selectedDate
                 )
                 .environment(\.managedObjectContext, viewContext)
             }

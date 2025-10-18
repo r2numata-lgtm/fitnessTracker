@@ -1,5 +1,5 @@
 //
-//  AllFoodsListView.swift - 完全修正版
+//  AllFoodsListView.swift
 //  FitnessTracker
 //
 
@@ -12,10 +12,33 @@ struct AllFoodsListView: View {
     @Environment(\.presentationMode) var presentationMode
     
     let selectedDate: Date
-    let foods: [FoodRecord]
     
     @State private var selectedFood: FoodRecord?
     @State private var showingFoodDetail = false
+    
+    // ✅ FetchRequestに変更（MealDetailViewと同じパターン）
+    @FetchRequest private var foods: FetchedResults<FoodRecord>
+    
+    // ✅ initでFetchRequestを設定
+    init(selectedDate: Date) {
+        self.selectedDate = selectedDate
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: selectedDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        _foods = FetchRequest<FoodRecord>(
+            sortDescriptors: [
+                NSSortDescriptor(keyPath: \FoodRecord.mealType, ascending: true),
+                NSSortDescriptor(keyPath: \FoodRecord.date, ascending: false)
+            ],
+            predicate: NSPredicate(
+                format: "date >= %@ AND date < %@",
+                startOfDay as NSDate,
+                endOfDay as NSDate
+            )
+        )
+    }
     
     // 食事タイプ別にグループ化
     private var groupedFoods: [(String, [FoodRecord])] {
@@ -27,6 +50,10 @@ struct AllFoodsListView: View {
     }
     
     var body: some View {
+        let _ = print("=== AllFoodsListView表示 ===")
+        let _ = print("食事記録数: \(foods.count)")
+        let _ = print("selectedFood: \(selectedFood?.foodName ?? "nil")")
+        let _ = print("showingFoodDetail: \(showingFoodDetail)")
         NavigationView {
             List {
                 if foods.isEmpty {
@@ -36,7 +63,13 @@ struct AllFoodsListView: View {
                         Section(header: mealTypeHeader(mealType)) {
                             ForEach(mealFoods, id: \.id) { food in
                                 Button(action: {
-                                    handleFoodTap(food)
+                                    print("=== ボタンタップ ===")
+                                    print("食材: \(food.foodName)")
+                                    print("コンテキスト同じ？: \(food.managedObjectContext === viewContext)")
+                                    selectedFood = food
+                                    showingFoodDetail = true
+                                    print("設定後 - selectedFood: \(selectedFood?.foodName ?? "nil")")
+                                    print("設定後 - showingFoodDetail: \(showingFoodDetail)")
                                 }) {
                                     FoodListRow(food: food)
                                 }
@@ -190,8 +223,6 @@ struct AllFoodsListView: View {
         }
     }
     
-    // MARK: - Computed Properties
-    
     // MARK: - Functions
 
     private var dateTitle: String {
@@ -199,28 +230,6 @@ struct AllFoodsListView: View {
         formatter.dateFormat = "M月d日(E)の食事"
         formatter.locale = Locale(identifier: "ja_JP")
         return formatter.string(from: selectedDate)
-    }
-
-    private func handleFoodTap(_ food: FoodRecord) {
-        print("=== 食材タップ ===")
-        print("食材名: \(food.foodName)")
-        print("オブジェクトID: \(food.objectID)")
-        
-        // CoreDataから最新の状態を取得
-        do {
-            if let refreshedFood = try viewContext.existingObject(with: food.objectID) as? FoodRecord {
-                selectedFood = refreshedFood
-                showingFoodDetail = true
-                print("✅ リフレッシュ成功")
-            } else {
-                print("❌ オブジェクトが見つかりません")
-            }
-        } catch {
-            print("❌ リフレッシュエラー: \(error.localizedDescription)")
-            // エラーでも一応試す
-            selectedFood = food
-            showingFoodDetail = true
-        }
     }
 
     private func deleteFood(offsets: IndexSet, from mealFoods: [FoodRecord]) {
@@ -294,11 +303,7 @@ struct FoodListRow: View {
     }
 }
 
-
 #Preview {
-    AllFoodsListView(
-        selectedDate: Date(),
-        foods: []
-    )
-    .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    AllFoodsListView(selectedDate: Date())
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
