@@ -21,45 +21,48 @@ struct HomeView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // 日付選択ヘッダー
-                    DatePickerHeader(
-                        selectedDate: $selectedDate,
-                        onDateChanged: {
-                            loadTodayData()
-                            refreshID = UUID()
+            VStack(spacing: 8) {  // 20 → 8 に変更
+                // 日付選択ヘッダー
+                DatePickerHeader(
+                    selectedDate: $selectedDate,
+                    onDateChanged: {
+                        loadTodayData()
+                        refreshID = UUID()
+                    }
+                )
+                .padding(.horizontal)
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        CalorieBalanceCard(
+                            selectedDate: selectedDate,
+                            dailyCalories: dailyCalories,
+                            todayWorkouts: todayWorkouts,
+                            todayFoods: todayFoods
+                        )
+                        .id(refreshID)
+                        
+                        if !todayWorkouts.isEmpty {
+                            TodayWorkoutSummaryCard(workouts: todayWorkouts)
+                                .id(refreshID)
                         }
-                    )
-                    .padding(.horizontal)
-                    
-                    CalorieBalanceCard(
-                        selectedDate: selectedDate,
-                        dailyCalories: dailyCalories,
-                        todayWorkouts: todayWorkouts,
-                        todayFoods: todayFoods
-                    )
-                    .id(refreshID)
-                    
-                    if !todayWorkouts.isEmpty {
-                        TodayWorkoutSummaryCard(workouts: todayWorkouts)
-                            .id(refreshID)
+                        
+                        if !todayFoods.isEmpty {
+                            TodayFoodSummaryCard(foods: todayFoods)
+                                .id(refreshID)
+                        }
+                        
+                        if todayWorkouts.isEmpty && todayFoods.isEmpty {
+                            EmptyStateCard()
+                        }
+                        
+                        Spacer()
                     }
-                    
-                    if !todayFoods.isEmpty {
-                        TodayFoodSummaryCard(foods: todayFoods)
-                            .id(refreshID)
-                    }
-                    
-                    if todayWorkouts.isEmpty && todayFoods.isEmpty {
-                        EmptyStateCard()
-                    }
-                    
-                    Spacer()
+                    .padding()
                 }
-                .padding()
             }
             .navigationTitle("ホーム")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 loadTodayData()
                 updateDailyCalories()
