@@ -28,46 +28,13 @@ struct FoodHomeView: View {
         NavigationView {
             ZStack {
                 VStack(spacing: 8) {
-                    // 上部：シンプルな日付選択
-                    HStack {
-                        Button(action: {
-                            selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .font(.title2)
-                                .foregroundColor(.blue)
+                    // 日付選択ヘッダー
+                    DatePickerHeader(
+                        selectedDate: $selectedDate,
+                        onDateChanged: {
+                            // 日付変更時の処理（FetchRequestが自動で更新）
                         }
-                        
-                        Spacer()
-                        
-                        VStack(spacing: 2) {
-                            Text(selectedDate, formatter: dateFormatter)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                            
-                            if !Calendar.current.isDate(selectedDate, inSameDayAs: Date()) {
-                                Button("今日に戻る") {
-                                    selectedDate = Date()
-                                }
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
-                        }) {
-                            Image(systemName: "chevron.right")
-                                .font(.title2)
-                                .foregroundColor(.blue)
-                        }
-                        .disabled(Calendar.current.isDateInToday(selectedDate))
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    )
                     .padding(.horizontal)
                     
                     // 下部：栄養情報とリスト
@@ -178,14 +145,6 @@ struct FoodHomeView: View {
         return filteredFoodsForDay.filter { $0.mealType == mealType }
     }
 }
-
-// MARK: - 日付フォーマッター
-private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "M月d日(E)"
-    formatter.locale = Locale(identifier: "ja_JP")
-    return formatter
-}()
 
 #Preview {
     FoodHomeView()

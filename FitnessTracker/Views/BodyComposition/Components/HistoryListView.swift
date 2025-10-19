@@ -66,63 +66,60 @@ struct HistoryRow: View {
     let composition: BodyComposition
     let dateFormatter: DateFormatter
     
-    @State private var showingDeleteAlert = false
+    @State private var showingEditSheet = false
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(composition.date, formatter: dateFormatter)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                HStack(spacing: 12) {
-                    Label(
-                        String(format: "%.1fkg", composition.weight),
-                        systemImage: "scalemass"
-                    )
-                    .font(.caption)
-                    .foregroundColor(.green)
+        Button(action: {
+            showingEditSheet = true
+        }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(composition.date, formatter: dateFormatter)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
                     
-                    if composition.bodyFatPercentage > 0 {
+                    HStack(spacing: 12) {
                         Label(
-                            String(format: "%.1f%%", composition.bodyFatPercentage),
-                            systemImage: "chart.pie"
+                            String(format: "%.1fkg", composition.weight),
+                            systemImage: "scalemass"
                         )
                         .font(.caption)
-                        .foregroundColor(.orange)
+                        .foregroundColor(.green)
+                        
+                        if composition.bodyFatPercentage > 0 {
+                            Label(
+                                String(format: "%.1f%%", composition.bodyFatPercentage),
+                                systemImage: "chart.pie"
+                            )
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        }
+                        
+                        Label(
+                            "BMI \(String(format: "%.1f", calculateBMI()))",
+                            systemImage: "heart.text.square"
+                        )
+                        .font(.caption)
+                        .foregroundColor(.purple)
                     }
-                    
-                    Label(
-                        "BMI \(String(format: "%.1f", calculateBMI()))",
-                        systemImage: "heart.text.square"
-                    )
-                    .font(.caption)
-                    .foregroundColor(.purple)
                 }
-            }
-            
-            Spacer()
-            
-            // 削除ボタン
-            Button(action: {
-                showingDeleteAlert = true
-            }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
+                
+                Spacer()
+                
+                // 編集アイコン
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
                     .font(.caption)
             }
-            .buttonStyle(BorderlessButtonStyle())
+            .padding(.vertical, 12)
+            .padding(.horizontal)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal)
-        .contentShape(Rectangle())
-        .alert("削除確認", isPresented: $showingDeleteAlert) {
-            Button("キャンセル", role: .cancel) { }
-            Button("削除", role: .destructive) {
-                deleteEntry()
-            }
-        } message: {
-            Text("この記録を削除しますか?")
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showingEditSheet) {
+            AddBodyCompositionView(selectedDate: composition.date)
+                .environment(\.managedObjectContext, viewContext)
         }
     }
     
@@ -131,18 +128,5 @@ struct HistoryRow: View {
             weight: composition.weight,
             height: composition.height
         )
-    }
-    
-    private func deleteEntry() {
-        withAnimation {
-            viewContext.delete(composition)
-            
-            do {
-                try viewContext.save()
-                print("✅ 体組成データを削除しました")
-            } catch {
-                print("❌ 削除エラー: \(error)")
-            }
-        }
     }
 }

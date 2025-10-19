@@ -11,6 +11,7 @@ import CoreData
 
 // MARK: - カロリー収支カード
 struct CalorieBalanceCard: View {
+    let selectedDate: Date
     let dailyCalories: DailyCalories?
     let todayWorkouts: [WorkoutEntry]
     let todayFoods: [FoodRecord]
@@ -18,7 +19,7 @@ struct CalorieBalanceCard: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var healthKitManager: HealthKitManager
     @State private var latestBodyComposition: BodyComposition?
-    @State private var showingBodyCompositionPrompt = false
+    @State private var showingAddBodyComposition = false
     
     private var totalIntake: Double {
         todayFoods.reduce(0) { $0 + $1.actualCalories }
@@ -65,46 +66,9 @@ struct CalorieBalanceCard: View {
         .onAppear {
             fetchLatestBodyComposition()
         }
-        .sheet(isPresented: $showingBodyCompositionPrompt) {
-            NavigationView {
-                VStack(spacing: 20) {
-                    Image(systemName: "person.fill.questionmark")
-                        .font(.system(size: 60))
-                        .foregroundColor(.orange)
-                    
-                    Text("体組成データが登録されていません")
-                        .font(.headline)
-                    
-                    Text("正確な消費カロリーを計算するために、\n体組成データを登録してください")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    Button(action: {
-                        showingBodyCompositionPrompt = false
-                        // 体組成画面に遷移（TabView経由）
-                    }) {
-                        Text("今すぐ登録")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(10)
-                    }
-                    .padding(.horizontal)
-                }
-                .padding()
-                .navigationTitle("体組成データ登録")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("閉じる") {
-                            showingBodyCompositionPrompt = false
-                        }
-                    }
-                }
-            }
+        .sheet(isPresented: $showingAddBodyComposition) {
+            AddBodyCompositionView(selectedDate: selectedDate)
+                .environment(\.managedObjectContext, viewContext)
         }
     }
     
@@ -125,7 +89,7 @@ struct CalorieBalanceCard: View {
                 .multilineTextAlignment(.center)
             
             Button(action: {
-                showingBodyCompositionPrompt = true
+                showingAddBodyComposition = true
             }) {
                 Text("体組成を登録")
                     .font(.caption)
@@ -242,27 +206,55 @@ struct CalorieBalanceCard: View {
     
     // MARK: - 最新の体組成データを取得
     private func fetchLatestBodyComposition() {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: selectedDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
         let request: NSFetchRequest<BodyComposition> = BodyComposition.fetchRequest()
+        request.predicate = NSPredicate(format: "date >= %@ AND date < %@",
+                                        startOfDay as NSDate,
+                                        endOfDay as NSDate)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \BodyComposition.date, ascending: false)]
         request.fetchLimit = 1
         
         do {
             let results = try viewContext.fetch(request)
-            latestBodyComposition = results.first
             
-            if results.first != nil {
-                print("✅ 体組成データを取得: BMR=\(Int(basalMetabolicRate))kcal")
+            if let todayComposition = results.first {
+                // 選択日のデータが見つかった
+                latestBodyComposition = todayComposition
+                print("✅ \(formatSelectedDate())の体組成データを取得: BMR=\(Int(basalMetabolicRate))kcal")
             } else {
-                print("⚠️ 体組成データが登録されていません")
+                // 選択日のデータがない場合は、最新のデータを取得
+                let latestRequest: NSFetchRequest<BodyComposition> = BodyComposition.fetchRequest()
+                latestRequest.sortDescriptors = [NSSortDescriptor(keyPath: \BodyComposition.date, ascending: false)]
+                latestRequest.fetchLimit = 1
+                
+                let latestResults = try viewContext.fetch(latestRequest)
+                latestBodyComposition = latestResults.first
+                
+                if latestResults.first != nil {
+                    print("⚠️ \(formatSelectedDate())のデータなし。最新データを使用: BMR=\(Int(basalMetabolicRate))kcal")
+                } else {
+                    print("⚠️ 体組成データが登録されていません")
+                }
             }
         } catch {
             print("❌ 体組成データ取得エラー: \(error)")
         }
     }
+    
+    private func formatSelectedDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M月d日"
+        formatter.locale = Locale(identifier: "ja_JP")
+        return formatter.string(from: selectedDate)
+    }
 }
 
 #Preview {
     CalorieBalanceCard(
+        selectedDate: Date(),
         dailyCalories: nil,
         todayWorkouts: [],
         todayFoods: []

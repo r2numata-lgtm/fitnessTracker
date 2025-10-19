@@ -9,65 +9,51 @@
 import SwiftUI
 
 struct CurrentStatsCard: View {
-    let bodyComposition: BodyComposition?
-    
-    private let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        formatter.locale = Locale(identifier: "ja_JP")
-        return formatter
-    }()
+    let bodyComposition: BodyComposition
+    let selectedDate: Date
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("現在の体組成")
+            Text(formatDateTitle(selectedDate))
                 .font(.headline)
             
-            if let composition = bodyComposition {
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 15) {
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 15) {
+                StatItem(
+                    title: "身長",
+                    value: "\(Int(bodyComposition.height))cm",
+                    color: .blue
+                )
+                
+                StatItem(
+                    title: "体重",
+                    value: String(format: "%.1fkg", bodyComposition.weight),
+                    color: .green
+                )
+                
+                if bodyComposition.bodyFatPercentage > 0 {
                     StatItem(
-                        title: "身長",
-                        value: "\(Int(composition.height))cm",
-                        color: .blue
+                        title: "体脂肪率",
+                        value: String(format: "%.1f%%", bodyComposition.bodyFatPercentage),
+                        color: .orange
                     )
-                    
-                    StatItem(
-                        title: "体重",
-                        value: String(format: "%.1fkg", composition.weight),
-                        color: .green
-                    )
-                    
-                    if composition.bodyFatPercentage > 0 {
-                        StatItem(
-                            title: "体脂肪率",
-                            value: String(format: "%.1f%%", composition.bodyFatPercentage),
-                            color: .orange
-                        )
-                    }
-                    
-                    StatItem(
-                        title: "BMI",
-                        value: String(format: "%.1f", calculateBMI(composition)),
-                        color: .purple
-                    )
-                    
-                    if composition.muscleMass > 0 {
-                        StatItem(
-                            title: "筋肉量",
-                            value: String(format: "%.1fkg", composition.muscleMass),
-                            color: .red
-                        )
-                    }
                 }
                 
-                Text("最終更新: \(composition.date, formatter: dateFormatter)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.top)
+                StatItem(
+                    title: "BMI",
+                    value: String(format: "%.1f", calculateBMI(bodyComposition)),
+                    color: .purple
+                )
+                
+                if bodyComposition.muscleMass > 0 {
+                    StatItem(
+                        title: "筋肉量",
+                        value: String(format: "%.1fkg", bodyComposition.muscleMass),
+                        color: .red
+                    )
+                }
             }
         }
         .padding()
@@ -80,6 +66,18 @@ struct CurrentStatsCard: View {
             weight: composition.weight,
             height: composition.height
         )
+    }
+    
+    private func formatDateTitle(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "今日の体組成"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy年M月d日の体組成"
+            formatter.locale = Locale(identifier: "ja_JP")
+            return formatter.string(from: date)
+        }
     }
 }
 

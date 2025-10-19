@@ -13,6 +13,8 @@ struct AddBodyCompositionView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
     
+    let selectedDate: Date
+    
     // 入力値
     @State private var height: Double = 170
     @State private var weight: Double = 70
@@ -20,7 +22,6 @@ struct AddBodyCompositionView: View {
     @State private var gender: Gender = .male
     @State private var bodyFatPercentage: Double = 0
     @State private var muscleMass: Double = 0
-    @State private var activityLevel: ActivityLevel = .light
     
     // アラート
     @State private var showingAlert = false
@@ -33,6 +34,9 @@ struct AddBodyCompositionView: View {
     )
     private var previousEntries: FetchedResults<BodyComposition>
     
+    // 選択日の既存データ
+    @State private var existingEntry: BodyComposition?
+    
     var body: some View {
         NavigationView {
             Form {
@@ -40,7 +44,7 @@ struct AddBodyCompositionView: View {
                 detailSection
                 calculationResultSection
             }
-            .navigationTitle("体組成記録")
+            .navigationTitle(formatDate(selectedDate))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -59,6 +63,10 @@ struct AddBodyCompositionView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+            }
+            .onAppear {
+                checkExistingEntry()
+                loadPreviousValues()
             }
         }
     }
@@ -122,24 +130,6 @@ struct AddBodyCompositionView: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 100)
             }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("活動レベル")
-                    .font(.subheadline)
-                
-                Picker("活動レベル", selection: $activityLevel) {
-                    ForEach(ActivityLevel.allCases) { level in
-                        VStack(alignment: .leading) {
-                            Text(level.rawValue)
-                            Text(level.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .tag(level)
-                    }
-                }
-                .pickerStyle(MenuPickerStyle())
-            }
         }
     }
     
@@ -165,14 +155,6 @@ struct AddBodyCompositionView: View {
                 Text("\(Int(calculateBMR()))kcal/日")
                     .fontWeight(.semibold)
                     .foregroundColor(.red)
-            }
-            
-            HStack {
-                Text("推定消費カロリー")
-                Spacer()
-                Text("\(Int(calculateTDEE()))kcal/日")
-                    .fontWeight(.semibold)
-                    .foregroundColor(.orange)
             }
             
             if bodyFatPercentage > 0 {
@@ -208,18 +190,53 @@ struct AddBodyCompositionView: View {
         }
     }
     
-    private func calculateTDEE() -> Double {
-        BodyCompositionCalculator.calculateTDEE(
-            bmr: calculateBMR(),
-            activityLevel: activityLevel
-        )
-    }
-    
     private func calculateLeanBodyMass() -> Double {
         BodyCompositionCalculator.calculateLeanBodyMass(
             weight: weight,
             bodyFatPercentage: bodyFatPercentage
         )
+    }
+    
+    // MARK: - 既存エントリの確認
+    private func checkExistingEntry() {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: selectedDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        existingEntry = previousEntries.first { entry in
+            entry.date >= startOfDay && entry.date < endOfDay
+        }
+        
+        if let existing = existingEntry {
+            // 既存データがあれば、その値を初期値に
+            height = existing.height
+            weight = existing.weight
+            age = Int(existing.age)
+            gender = Gender.from(storageValue: existing.gender)
+            bodyFatPercentage = existing.bodyFatPercentage
+            muscleMass = existing.muscleMass
+            print("✅ \(formatDate(selectedDate))の既存データを読み込みました")
+        }
+    }
+    
+    // MARK: - 前回値の読み込み
+    private func loadPreviousValues() {
+        // 既存データがある場合はスキップ
+        if existingEntry != nil { return }
+        
+        guard let latest = previousEntries.first else { return }
+        
+        // 身長・年齢・性別は前回値を引き継ぐ
+        height = latest.height
+        age = Int(latest.age)
+        gender = Gender.from(storageValue: latest.gender)
+        
+        // 体重・体脂肪率・筋肉量はリセット（毎回測定）
+        weight = 0
+        bodyFatPercentage = 0
+        muscleMass = 0
+        
+        print("✅ 前回の入力値（身長・年齢・性別）を読み込みました")
     }
     
     // MARK: - 保存処理
@@ -237,6 +254,12 @@ struct AddBodyCompositionView: View {
             return
         }
         
+        if weight == 0 {
+            alertMessage = "体重を入力してください"
+            showingAlert = true
+            return
+        }
+        
         if !BodyCompositionCalculator.isValidAge(age) {
             alertMessage = "年齢は10〜120歳の範囲で入力してください"
             showingAlert = true
@@ -249,22 +272,34 @@ struct AddBodyCompositionView: View {
             return
         }
         
-        // 保存
-        let newEntry = BodyComposition(context: viewContext)
-        newEntry.id = UUID()
-        newEntry.date = Date()
-        newEntry.height = height
-        newEntry.weight = weight
-        newEntry.age = Int16(age)
-        newEntry.gender = gender.storageValue
-        newEntry.bodyFatPercentage = bodyFatPercentage
-        newEntry.muscleMass = muscleMass
-        newEntry.basalMetabolicRate = calculateBMR()
-        newEntry.activityLevel = activityLevel.storageValue
+        let calendar = Calendar.current
+        let saveDate = calendar.startOfDay(for: selectedDate)
+        
+        // 既存データがあれば更新、なければ新規作成
+        let entry: BodyComposition
+        if let existing = existingEntry {
+            entry = existing
+            print("📝 既存データを更新します")
+        } else {
+            entry = BodyComposition(context: viewContext)
+            entry.id = UUID()
+            entry.date = saveDate
+            print("✨ 新規データを作成します")
+        }
+        
+        // データ設定
+        entry.height = height
+        entry.weight = weight
+        entry.age = Int16(age)
+        entry.gender = gender.storageValue
+        entry.bodyFatPercentage = bodyFatPercentage
+        entry.muscleMass = muscleMass
+        entry.basalMetabolicRate = calculateBMR()
+        entry.activityLevel = nil  // 活動レベルは使用しない
         
         do {
             try viewContext.save()
-            print("✅ 体組成データを保存しました")
+            print("✅ 体組成データを保存しました: \(formatDate(selectedDate))")
             presentationMode.wrappedValue.dismiss()
         } catch {
             print("❌ 保存エラー: \(error)")
@@ -272,9 +307,22 @@ struct AddBodyCompositionView: View {
             showingAlert = true
         }
     }
+    
+    // MARK: - 日付フォーマット
+    private func formatDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "今日の体組成"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy年M月d日の体組成"
+            formatter.locale = Locale(identifier: "ja_JP")
+            return formatter.string(from: date)
+        }
+    }
 }
 
 #Preview {
-    AddBodyCompositionView()
+    AddBodyCompositionView(selectedDate: Date())
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }

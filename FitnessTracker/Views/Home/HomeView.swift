@@ -1,6 +1,9 @@
 //
 //  HomeView.swift
 //  FitnessTracker
+//  Views/Home/HomeView.swift
+//
+//  Updated on 2025/10/19.
 //
 
 import SwiftUI
@@ -14,35 +17,38 @@ struct HomeView: View {
     @State private var todayWorkouts: [WorkoutEntry] = []
     @State private var todayFoods: [FoodRecord] = []
     @State private var selectedDate = Date()
-    @State private var refreshID = UUID()  // ← 追加
+    @State private var refreshID = UUID()
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    DatePicker("日付", selection: $selectedDate, displayedComponents: .date)
-                        .datePickerStyle(CompactDatePickerStyle())
-                        .padding(.horizontal)
-                        .onChange(of: selectedDate) { _ in
+                    // 日付選択ヘッダー
+                    DatePickerHeader(
+                        selectedDate: $selectedDate,
+                        onDateChanged: {
                             loadTodayData()
-                            refreshID = UUID()  // ← 追加
+                            refreshID = UUID()
                         }
+                    )
+                    .padding(.horizontal)
                     
                     CalorieBalanceCard(
+                        selectedDate: selectedDate,
                         dailyCalories: dailyCalories,
                         todayWorkouts: todayWorkouts,
                         todayFoods: todayFoods
                     )
-                    .id(refreshID)  // ← 追加
+                    .id(refreshID)
                     
                     if !todayWorkouts.isEmpty {
                         TodayWorkoutSummaryCard(workouts: todayWorkouts)
-                            .id(refreshID)  // ← 追加
+                            .id(refreshID)
                     }
                     
                     if !todayFoods.isEmpty {
                         TodayFoodSummaryCard(foods: todayFoods)
-                            .id(refreshID)  // ← 追加
+                            .id(refreshID)
                     }
                     
                     if todayWorkouts.isEmpty && todayFoods.isEmpty {
@@ -59,7 +65,6 @@ struct HomeView: View {
                 updateDailyCalories()
             }
             .onChange(of: viewContext.hasChanges) { _ in
-                // ← 追加: Core Dataの変更を検知
                 if !viewContext.hasChanges {
                     loadTodayData()
                     updateDailyCalories()
@@ -83,7 +88,7 @@ struct HomeView: View {
                                              endOfDay as NSDate)
         workoutRequest.sortDescriptors = [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)]
         
-        // 今日の食事データを取得 (FoodRecord)
+        // 今日の食事データを取得
         let foodRequest: NSFetchRequest<FoodRecord> = FoodRecord.fetchRequest()
         foodRequest.predicate = NSPredicate(format: "date >= %@ AND date < %@",
                                           startOfDay as NSDate,
@@ -109,13 +114,11 @@ struct HomeView: View {
     }
     
     private func updateDailyCalories() {
-        // カロリーデータがない場合は作成
         if dailyCalories == nil {
             createTodayCaloriesEntry()
         }
         
-        // 合計値を計算して更新
-        let totalIntake = todayFoods.reduce(0) { $0 + $1.actualCalories }  // calories → actualCalories
+        let totalIntake = todayFoods.reduce(0) { $0 + $1.actualCalories }
         let totalBurned = todayWorkouts.reduce(0) { $0 + $1.caloriesBurned }
         
         dailyCalories?.totalIntake = totalIntake
