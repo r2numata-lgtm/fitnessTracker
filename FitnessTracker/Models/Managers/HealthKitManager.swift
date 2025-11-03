@@ -11,6 +11,8 @@ class HealthKitManager: ObservableObject {
     private let healthStore = HKHealthStore()
     @Published var isAuthorized = false
     @Published var dailySteps: Int = 0
+    @Published var dailyDistance: Double = 0  // 追加
+    @Published var dailyActiveCalories: Double = 0  // 追加
     
     init() {
         checkHealthKitAvailability()
@@ -27,6 +29,7 @@ class HealthKitManager: ObservableObject {
     private func requestHealthKitPermissions() {
         let typesToRead: Set<HKObjectType> = [
             HKQuantityType.quantityType(forIdentifier: .stepCount)!,
+            HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,  // 追加
             HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
             HKQuantityType.quantityType(forIdentifier: .height)!
@@ -41,14 +44,21 @@ class HealthKitManager: ObservableObject {
             DispatchQueue.main.async {
                 self?.isAuthorized = success
                 if success {
-                    self?.fetchTodaySteps()
-                    self?.startObservingSteps()
+                    self?.fetchTodayActivityData()
+                    self?.startObservingActivityData()
                 }
                 if let error = error {
                     print("HealthKit authorization error: \(error.localizedDescription)")
                 }
             }
         }
+    }
+    
+    // MARK: - 今日のアクティビティデータを取得（統合版）
+    func fetchTodayActivityData() {
+        fetchTodaySteps()
+        fetchTodayDistance()
+        fetchTodayActiveCalories()
     }
     
     // MARK: - 歩数データ取得
@@ -75,6 +85,7 @@ class HealthKitManager: ObservableObject {
                 if let sum = result?.sumQuantity() {
                     let steps = Int(sum.doubleValue(for: HKUnit.count()))
                     self?.dailySteps = steps
+                    print("✅ 歩数取得: \(steps)歩")
                 }
             }
         }
@@ -82,7 +93,77 @@ class HealthKitManager: ObservableObject {
         healthStore.execute(query)
     }
     
-    // MARK: - 歩数データの監視
+    // MARK: - 移動距離データ取得
+    func fetchTodayDistance() {
+        guard let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) else {
+            return
+        }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfDay = calendar.startOfDay(for: now)
+        
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now, options: .strictStartDate)
+        
+        let query = HKStatisticsQuery(quantityType: distanceType,
+                                     quantitySamplePredicate: predicate,
+                                     options: .cumulativeSum) { [weak self] _, result, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("距離取得エラー: \(error.localizedDescription)")
+                    return
+                }
+                
+                if let sum = result?.sumQuantity() {
+                    let distanceInKm = sum.doubleValue(for: HKUnit.meter()) / 1000.0
+                    self?.dailyDistance = distanceInKm
+                    print("✅ 移動距離取得: \(String(format: "%.2f", distanceInKm))km")
+                }
+            }
+        }
+        
+        healthStore.execute(query)
+    }
+    
+    // MARK: - 活動消費カロリー取得（Apple Watch優先）
+    func fetchTodayActiveCalories() {
+        guard let caloriesType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return
+        }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfDay = calendar.startOfDay(for: now)
+        
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now, options: .strictStartDate)
+        
+        let query = HKStatisticsQuery(quantityType: caloriesType,
+                                    quantitySamplePredicate: predicate,
+                                    options: .cumulativeSum) { [weak self] _, result, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("消費カロリー取得エラー: \(error.localizedDescription)")
+                    return
+                }
+                
+                if let sum = result?.sumQuantity() {
+                    let calories = sum.doubleValue(for: HKUnit.kilocalorie())
+                    self?.dailyActiveCalories = calories
+                    print("✅ 活動消費カロリー取得: \(Int(calories))kcal (Apple Watchデータ)")
+                }
+            }
+        }
+        
+        healthStore.execute(query)
+    }
+    
+    // MARK: - アクティビティデータの監視
+    private func startObservingActivityData() {
+        startObservingSteps()
+        startObservingDistance()
+        startObservingActiveCalories()
+    }
+    
     private func startObservingSteps() {
         guard let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount) else {
             return
@@ -107,39 +188,82 @@ class HealthKitManager: ObservableObject {
         }
     }
     
-    // MARK: - 消費カロリー取得
-    func fetchTodayActiveCalories(completion: @escaping (Double) -> Void) {
-        guard let caloriesType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
-            completion(0)
+    private func startObservingDistance() {
+        guard let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) else {
             return
         }
         
-        let calendar = Calendar.current
-        let now = Date()
-        let startOfDay = calendar.startOfDay(for: now)
-        
-        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now, options: .strictStartDate)
-        
-        let query = HKStatisticsQuery(quantityType: caloriesType,
-                                    quantitySamplePredicate: predicate,
-                                    options: .cumulativeSum) { _, result, error in
+        let query = HKObserverQuery(sampleType: distanceType, predicate: nil) { [weak self] _, _, error in
+            if let error = error {
+                print("距離監視エラー: \(error.localizedDescription)")
+                return
+            }
+            
             DispatchQueue.main.async {
-                if let error = error {
-                    print("消費カロリー取得エラー: \(error.localizedDescription)")
-                    completion(0)
-                    return
-                }
-                
-                if let sum = result?.sumQuantity() {
-                    let calories = sum.doubleValue(for: HKUnit.kilocalorie())
-                    completion(calories)
-                } else {
-                    completion(0)
-                }
+                self?.fetchTodayDistance()
             }
         }
         
         healthStore.execute(query)
+    }
+    
+    private func startObservingActiveCalories() {
+        guard let caloriesType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return
+        }
+        
+        let query = HKObserverQuery(sampleType: caloriesType, predicate: nil) { [weak self] _, _, error in
+            if let error = error {
+                print("消費カロリー監視エラー: \(error.localizedDescription)")
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self?.fetchTodayActiveCalories()
+            }
+        }
+        
+        healthStore.execute(query)
+    }
+    
+    // MARK: - 最適な活動代謝を計算（ハイブリッド方式）
+    func calculateOptimalActivityCalories(weight: Double, activityLevel: ActivityLevel?) -> Double {
+        // 優先順位1: Apple Watchの活動消費カロリー（最も正確）
+        if dailyActiveCalories > 0 {
+            print("🏆 Apple Watch活動カロリー使用: \(Int(dailyActiveCalories))kcal")
+            return dailyActiveCalories
+        }
+        
+        // 優先順位2: 移動距離ベースの計算（正確）
+        if dailyDistance > 0 {
+            let calories = calculateActivityCaloriesFromDistance(distance: dailyDistance, weight: weight)
+            print("✅ 距離ベース計算: \(String(format: "%.2f", dailyDistance))km → \(Int(calories))kcal")
+            return calories
+        }
+        
+        // 優先順位3: 歩数から距離を推定（まあまあ）
+        if dailySteps > 0 {
+            let estimatedDistance = Double(dailySteps) * 0.0007 // 1歩 = 約0.7m
+            let calories = calculateActivityCaloriesFromDistance(distance: estimatedDistance, weight: weight)
+            print("⚠️ 歩数から推定: \(dailySteps)歩 → \(String(format: "%.2f", estimatedDistance))km → \(Int(calories))kcal")
+            return calories
+        }
+        
+        // 優先順位4: 活動レベル係数（フォールバック）
+        if let level = activityLevel {
+            print("⚠️ 活動レベル係数使用: \(level.rawValue)")
+            // この場合は基礎代謝 × 係数で計算するため、CalorieBalanceCardで処理
+            return 0
+        }
+        
+        print("❌ 活動データなし")
+        return 0
+    }
+    
+    // MARK: - 距離ベースの活動代謝計算
+    private func calculateActivityCaloriesFromDistance(distance: Double, weight: Double) -> Double {
+        // 計算式: 体重(kg) × 距離(km) × 1.05
+        return weight * distance * 1.05
     }
     
     // MARK: - 体重データをHealthKitに保存
@@ -197,12 +321,6 @@ class HealthKitManager: ObservableObject {
         default:
             return .traditionalStrengthTraining
         }
-    }
-    
-    // MARK: - 歩数からカロリー計算
-    func calculateCaloriesFromSteps(_ steps: Int, bodyWeight: Double = 70.0) -> Double {
-        // 一般的な計算式: 歩数 × 体重(kg) × 0.04
-        return Double(steps) * bodyWeight * 0.04
     }
     
     // MARK: - 週間データ取得

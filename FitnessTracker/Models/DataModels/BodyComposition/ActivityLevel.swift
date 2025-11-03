@@ -10,8 +10,8 @@ import Foundation
 
 // MARK: - 活動レベルの列挙型
 enum ActivityLevel: String, CaseIterable, Identifiable {
-    case sedentary = "座りがち"
-    case light = "軽度の活動"
+    case sedentary = "座りがちな生活"
+    case light = "軽い活動"
     case moderate = "中程度の活動"
     case active = "活発"
     case veryActive = "非常に活発"
@@ -32,11 +32,11 @@ enum ActivityLevel: String, CaseIterable, Identifiable {
     /// 説明文
     var description: String {
         switch self {
-        case .sedentary: return "ほとんど運動しない"
-        case .light: return "週1-3日の軽い運動"
-        case .moderate: return "週3-5日の中程度の運動"
-        case .active: return "週6-7日の激しい運動"
-        case .veryActive: return "1日2回以上の激しい運動"
+        case .sedentary: return "デスクワーク中心、ほとんど運動しない"
+        case .light: return "立ち仕事や軽い運動（週1-3回）"
+        case .moderate: return "毎日1時間程度の運動"
+        case .active: return "毎日1-2時間の激しい運動"
+        case .veryActive: return "毎日2時間以上の激しい運動またはアスリート"
         }
     }
     

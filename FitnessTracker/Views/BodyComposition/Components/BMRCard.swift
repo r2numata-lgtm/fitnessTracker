@@ -3,8 +3,6 @@
 //  FitnessTracker
 //  Views/BodyComposition/Components/BMRCard.swift
 //
-//  Created by FitnessTracker on 2025/10/19.
-//
 
 import SwiftUI
 
@@ -13,20 +11,20 @@ struct BMRCard: View {
     @EnvironmentObject var healthKitManager: HealthKitManager
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            Text("代謝情報")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("基礎代謝・消費カロリー")
                 .font(.headline)
             
-            VStack(spacing: 15) {
+            VStack(spacing: 12) {
                 // 基礎代謝
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("基礎代謝量 (BMR)")
+                        Text("基礎代謝（BMR）")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         
                         Text("\(Int(bodyComposition.basalMetabolicRate))kcal/日")
-                            .font(.title)
+                            .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(.red)
                     }
@@ -36,43 +34,32 @@ struct BMRCard: View {
                 
                 Divider()
                 
-                // 歩数と活動代謝
-                HStack(spacing: 20) {
+                // 活動代謝
+                HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("今日の歩数")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
                         HStack(spacing: 4) {
-                            Image(systemName: "figure.walk")
-                                .foregroundColor(.green)
-                            Text("\(healthKitManager.dailySteps)")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.green)
-                            Text("歩")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Text("活動代謝")
+                                .font(.subheadline)
+                            Text("(推定)")
+                                .font(.caption2)
                         }
+                        .foregroundColor(.secondary)
+                        
+                        let activityCalories = calculateActivityCalories()
+                        
+                        Text("\(Int(activityCalories))kcal/日")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                        
+                        // データソース表示
+                        Text(activityDataSourceText)
+                            .font(.caption2)
+                            .foregroundColor(.blue)
                     }
                     
                     Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("活動代謝")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text("\(Int(calculateActivityCalories()))kcal")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.green)
-                    }
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(Color(.systemGray6).opacity(0.5))
-                .cornerRadius(10)
                 
                 Divider()
                 
@@ -104,11 +91,58 @@ struct BMRCard: View {
         .cornerRadius(15)
     }
     
-    // MARK: - 活動代謝の計算（歩数ベース）
+    // MARK: - 活動代謝の計算
     private func calculateActivityCalories() -> Double {
-        // 計算式: 歩数 × 体重(kg) × 0.04 / 1000
-        let steps = Double(healthKitManager.dailySteps)
         let weight = bodyComposition.weight
-        return steps * weight * 0.04 / 1000
+        let activityLevel = getUserActivityLevel()
+        
+        // HealthKitManagerの最適化計算を使用
+        let calculatedCalories = healthKitManager.calculateOptimalActivityCalories(
+            weight: weight,
+            activityLevel: activityLevel
+        )
+        
+        // 活動レベル係数を使用する場合
+        if calculatedCalories == 0, let level = activityLevel {
+            return CalorieCalculator.calculateActivityCaloriesFromLevel(
+                bmr: bodyComposition.basalMetabolicRate,
+                activityLevel: level
+            )
+        }
+        
+        return calculatedCalories
     }
+    
+    private var activityDataSourceText: String {
+        if healthKitManager.dailyActiveCalories > 0 {
+            return "📱 Apple Watch データ"
+        } else if healthKitManager.dailyDistance > 0 {
+            return "📍 移動距離: \(String(format: "%.2f", healthKitManager.dailyDistance))km"
+        } else if healthKitManager.dailySteps > 0 {
+            return "👣 歩数: \(healthKitManager.dailySteps)歩"
+        } else if getUserActivityLevel() != nil {
+            return "⚙️ 活動レベル係数"
+        } else {
+            return "⚠️ データなし"
+        }
+    }
+    
+    private func getUserActivityLevel() -> ActivityLevel? {
+        if let levelString = UserDefaults.standard.string(forKey: "userActivityLevel") {
+            return ActivityLevel(rawValue: levelString)
+        }
+        return .light  // この行を追加
+    }
+}
+
+#Preview {
+    let context = PersistenceController.preview.container.viewContext
+    let composition = BodyComposition(context: context)
+    composition.weight = 70
+    composition.height = 175
+    composition.basalMetabolicRate = 1650
+    
+    return BMRCard(bodyComposition: composition)
+        .environmentObject(HealthKitManager())
+        .padding()
 }

@@ -20,6 +20,17 @@ class CalorieCalculator {
         }
     }
     
+    // MARK: - 総消費カロリー計算（TDEE）
+    static func calculateTDEE(bmr: Double, activityLevel: ActivityLevel) -> Double {
+        return bmr * activityLevel.multiplier
+    }
+    
+    // MARK: - 活動レベルから活動代謝を計算
+    static func calculateActivityCaloriesFromLevel(bmr: Double, activityLevel: ActivityLevel) -> Double {
+        let tdee = calculateTDEE(bmr: bmr, activityLevel: activityLevel)
+        return tdee - bmr // 総消費 - 基礎代謝 = 活動代謝
+    }
+    
     // MARK: - 筋トレ消費カロリー計算
     static func calculateWorkoutCalories(exerciseName: String, weight: Double, sets: Int, reps: Int) -> Double {
         let metValue = getMetValue(for: exerciseName)
@@ -52,11 +63,6 @@ class CalorieCalculator {
     static func calculateIdealWeight(height: Double) -> Double {
         let heightInMeters = height / 100.0
         return 22.0 * heightInMeters * heightInMeters // BMI 22を基準
-    }
-    
-    // MARK: - 活動代謝計算
-    static func calculateTDEE(bmr: Double, activityLevel: ActivityLevel) -> Double {
-        return bmr * activityLevel.multiplier
     }
     
     // MARK: - Private Methods

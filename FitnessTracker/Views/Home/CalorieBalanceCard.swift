@@ -34,12 +34,43 @@ struct CalorieBalanceCard: View {
         latestBodyComposition?.basalMetabolicRate ?? 0
     }
     
-    // 活動代謝（歩数から計算）
+    // 活動代謝（ハイブリッド計算）
     private var activityCalories: Double {
         guard let composition = latestBodyComposition else { return 0 }
-        let steps = Double(healthKitManager.dailySteps)
+        
         let weight = composition.weight
-        return steps * weight * 0.04 / 1000
+        let activityLevel = getUserActivityLevel()
+        
+        // HealthKitManagerの最適化計算を使用
+        let calculatedCalories = healthKitManager.calculateOptimalActivityCalories(
+            weight: weight,
+            activityLevel: activityLevel
+        )
+        
+        // 活動レベル係数を使用する場合
+        if calculatedCalories == 0, let level = activityLevel {
+            return CalorieCalculator.calculateActivityCaloriesFromLevel(
+                bmr: basalMetabolicRate,
+                activityLevel: level
+            )
+        }
+        
+        return calculatedCalories
+    }
+    
+    // データソースの取得
+    private var activityDataSource: String {
+        if healthKitManager.dailyActiveCalories > 0 {
+            return "Apple Watch"
+        } else if healthKitManager.dailyDistance > 0 {
+            return "移動距離"
+        } else if healthKitManager.dailySteps > 0 {
+            return "歩数"
+        } else if getUserActivityLevel() != nil {
+            return "活動レベル"
+        } else {
+            return "データなし"
+        }
     }
     
     // 総消費カロリー = 基礎代謝 + 活動代謝 + 筋トレ消費
@@ -166,11 +197,11 @@ struct CalorieBalanceCard: View {
                     
                     HStack {
                         HStack(spacing: 4) {
-                            Image(systemName: "figure.walk")
+                            Image(systemName: activityDataSourceIcon)
                                 .font(.caption2)
                             Text("活動代謝")
                                 .font(.caption)
-                            Text("(\(healthKitManager.dailySteps)歩)")
+                            Text("(\(activityDataSource))")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
@@ -185,9 +216,14 @@ struct CalorieBalanceCard: View {
                     
                     if workoutCalories > 0 {
                         HStack {
-                            Text("筋トレ消費")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 4) {
+                                Image(systemName: "figure.strengthtraining.traditional")
+                                    .font(.caption2)
+                                Text("筋トレ消費")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.secondary)
+                            
                             Spacer()
                             Text("\(Int(workoutCalories))kcal")
                                 .font(.caption)
@@ -196,59 +232,48 @@ struct CalorieBalanceCard: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-                .background(Color(.systemGray6).opacity(0.5))
-                .cornerRadius(8)
             }
         }
     }
     
-    // MARK: - 最新の体組成データを取得
+    // MARK: - アイコン選択
+    private var activityDataSourceIcon: String {
+        if healthKitManager.dailyActiveCalories > 0 {
+            return "applewatch"
+        } else if healthKitManager.dailyDistance > 0 {
+            return "location.fill"
+        } else if healthKitManager.dailySteps > 0 {
+            return "figure.walk"
+        } else if getUserActivityLevel() != nil {
+            return "person.fill"
+        } else {
+            return "exclamationmark.circle"
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
     private func fetchLatestBodyComposition() {
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: selectedDate)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-        
         let request: NSFetchRequest<BodyComposition> = BodyComposition.fetchRequest()
-        request.predicate = NSPredicate(format: "date >= %@ AND date < %@",
-                                        startOfDay as NSDate,
-                                        endOfDay as NSDate)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \BodyComposition.date, ascending: false)]
         request.fetchLimit = 1
-        
+                
         do {
             let results = try viewContext.fetch(request)
-            
-            if let todayComposition = results.first {
-                // 選択日のデータが見つかった
-                latestBodyComposition = todayComposition
-                print("✅ \(formatSelectedDate())の体組成データを取得: BMR=\(Int(basalMetabolicRate))kcal")
-            } else {
-                // 選択日のデータがない場合は、最新のデータを取得
-                let latestRequest: NSFetchRequest<BodyComposition> = BodyComposition.fetchRequest()
-                latestRequest.sortDescriptors = [NSSortDescriptor(keyPath: \BodyComposition.date, ascending: false)]
-                latestRequest.fetchLimit = 1
-                
-                let latestResults = try viewContext.fetch(latestRequest)
-                latestBodyComposition = latestResults.first
-                
-                if latestResults.first != nil {
-                    print("⚠️ \(formatSelectedDate())のデータなし。最新データを使用: BMR=\(Int(basalMetabolicRate))kcal")
-                } else {
-                    print("⚠️ 体組成データが登録されていません")
-                }
-            }
+            latestBodyComposition = results.first
         } catch {
-            print("❌ 体組成データ取得エラー: \(error)")
+            print("体組成データ取得エラー: \(error)")
         }
     }
-    
-    private func formatSelectedDate() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M月d日"
-        formatter.locale = Locale(identifier: "ja_JP")
-        return formatter.string(from: selectedDate)
+            
+    private func getUserActivityLevel() -> ActivityLevel? {
+        // UserDefaultsから取得
+        if let levelString = UserDefaults.standard.string(forKey: "userActivityLevel") {
+            return ActivityLevel(rawValue: levelString)
+        }
+        
+        // デフォルト値を返す（初回起動時など）
+        return .light  // この行を追加
     }
 }
 
@@ -261,5 +286,5 @@ struct CalorieBalanceCard: View {
     )
     .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     .environmentObject(HealthKitManager())
-    .padding()
 }
+        
