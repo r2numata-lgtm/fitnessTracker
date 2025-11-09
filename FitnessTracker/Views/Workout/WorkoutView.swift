@@ -13,6 +13,7 @@ struct SelectedExercise: Identifiable {
     let id = UUID()
     let name: String
     let date: Date
+    let sessionId: UUID?  // ← 追加
 }
 
 struct WorkoutView: View {
@@ -53,11 +54,20 @@ struct WorkoutView: View {
                     
                     // 記録リスト
                     List {
-                        ForEach(Array(groupedWorkouts.keys.sorted()), id: \.self) { exerciseName in
-                            if let workoutSets = groupedWorkouts[exerciseName] {
+                        ForEach(Array(groupedWorkouts.keys.sorted()), id: \.self) { key in
+                            if let workoutSets = groupedWorkouts[key] {
+                                // キーから種目名を抽出（最初のアンダースコアの前まで）
+                                let exerciseName = key.components(separatedBy: "_").first ?? key
+                                
                                 Button(action: {
                                     if !exerciseName.isEmpty && exerciseName != "不明な種目" {
-                                        selectedExercise = SelectedExercise(name: exerciseName, date: selectedDate)
+                                        if let firstWorkout = workoutSets.first {
+                                            selectedExercise = SelectedExercise(
+                                                name: exerciseName,
+                                                date: firstWorkout.date,
+                                                sessionId: firstWorkout.sessionId  // ← セッションIDを渡す
+                                            )
+                                        }
                                     }
                                 }) {
                                     GroupedWorkoutRowView(exerciseName: exerciseName, workoutSets: workoutSets)
@@ -123,7 +133,8 @@ struct WorkoutView: View {
                 ExerciseDetailView(
                     exerciseName: exercise.name,
                     selectedDate: exercise.date,
-                    isEditMode: true
+                    isEditMode: true,
+                    sessionId: exercise.sessionId  // ← セッションIDを渡す
                 )
                 .environment(\.managedObjectContext, viewContext)
             }
@@ -150,19 +161,22 @@ struct WorkoutView: View {
         let filteredWorkouts = workouts.filter { workout in
             workout.date >= startOfDay && workout.date < endOfDay
         }
-        // セットの順番を保持するために、日時順でソート
+        
+        // 日時順でソート
         let sortedWorkouts = filteredWorkouts.sorted { $0.date < $1.date }
         
-        // 種目名が空やnilの場合の対処を強化
-        let grouped = Dictionary(grouping: sortedWorkouts) { workout in
-            let exerciseName = workout.exerciseName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if exerciseName.isEmpty {
-                print("⚠️ 警告: 種目名が空またはnil")
-                return "不明な種目"
+        // sessionIdでグループ化
+        let grouped = Dictionary(grouping: sortedWorkouts) { workout -> String in
+            let exerciseName = workout.exerciseName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "不明な種目"
+            
+            if let sessionId = workout.sessionId {
+                // セッションIDがある場合: 種目名_セッションID
+                return "\(exerciseName)_\(sessionId.uuidString)"
+            } else {
+                // セッションIDがない古いデータ: 種目名のみ（従来通り）
+                return exerciseName
             }
-            return exerciseName
         }
-        
         
         return grouped
     }

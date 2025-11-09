@@ -21,7 +21,7 @@ extension WorkoutEntry {
     @NSManaged public var caloriesBurned: Double
     @NSManaged public var photo: Data?
     @NSManaged public var memo: String?
-
+    @NSManaged public var sessionId: UUID?  // ← この行を追加
 }
 
 extension WorkoutEntry : Identifiable {

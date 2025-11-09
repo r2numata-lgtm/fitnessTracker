@@ -23,7 +23,7 @@ struct ExerciseDetailView: View {
     // 編集モード用
     @FetchRequest private var existingWorkouts: FetchedResults<WorkoutEntry>
     
-    init(exerciseName: String, selectedDate: Date, isEditMode: Bool = false) {
+    init(exerciseName: String, selectedDate: Date, isEditMode: Bool = false, sessionId: UUID? = nil) {
         self.exerciseName = exerciseName
         self.selectedDate = selectedDate
         self.isEditMode = isEditMode
@@ -43,21 +43,17 @@ struct ExerciseDetailView: View {
         print("検索範囲: \(startOfDay) 〜 \(endOfDay)")
         print("検索クエリ: exerciseName == '\(exerciseName)'")
         
-        // ← ここを修正: 編集モードの時だけ existingWorkouts を取得
-        if isEditMode {
+        if isEditMode, let sessionId = sessionId {
+            // セッションIDで記録を取得
             self._existingWorkouts = FetchRequest(
                 sortDescriptors: [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)],
-                predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
-                    NSPredicate(format: "exerciseName == %@", exerciseName),
-                    NSPredicate(format: "date >= %@", startOfDay as NSDate),
-                    NSPredicate(format: "date < %@", endOfDay as NSDate)
-                ])
+                predicate: NSPredicate(format: "sessionId == %@", sessionId as CVarArg)
             )
         } else {
             // 新規モードの場合は空のFetchRequest
             self._existingWorkouts = FetchRequest(
                 sortDescriptors: [],
-                predicate: NSPredicate(value: false)  // 何も取得しない
+                predicate: NSPredicate(value: false)
             )
         }
         print("================================")
@@ -288,25 +284,37 @@ struct ExerciseDetailView: View {
             }
         }
         
-        // 基準日時を設定（選択日の開始時刻）
+        // 基準日時を設定
         let calendar = Calendar.current
-        let baseDate = calendar.startOfDay(for: selectedDate)
+        let baseDate: Date
+        if isEditMode {
+            // 編集モードの場合は、その日の0時から
+            baseDate = calendar.startOfDay(for: selectedDate)
+        } else {
+            // 新規追加の場合は、現在時刻から
+            baseDate = Date()
+        }
         
+        // セッションIDを生成（このセッション全体で共通）
+        let sessionId = UUID()
+        print("セッションID: \(sessionId)")
+
         // 新しいデータを保存（セットごとに1秒ずつずらして順番を保持）
         for (index, set) in sets.enumerated() {
             // セットの順番を保持するため、1秒ずつずらして保存
             let setDate = calendar.date(byAdding: .second, value: index, to: baseDate) ?? baseDate
             
             let newWorkout = WorkoutEntry(context: viewContext)
-            newWorkout.date = setDate // 順番を保持するための日時
+            newWorkout.date = setDate
             newWorkout.exerciseName = exerciseName
             newWorkout.weight = set.weight
-            newWorkout.sets = 1 // 1セットずつ保存
+            newWorkout.sets = 1
             newWorkout.reps = Int16(set.reps)
             newWorkout.caloriesBurned = Double(calculateTotalCalories()) / Double(sets.count)
             newWorkout.memo = set.memo.isEmpty ? nil : set.memo
+            newWorkout.sessionId = sessionId  // ← セッションIDを設定
             
-            print("保存するワークアウト[\(index)]: 種目='\(newWorkout.exerciseName ?? "nil")', 重量=\(newWorkout.weight), 回数=\(newWorkout.reps), 日時=\(setDate)")
+            print("保存するワークアウト[\(index)]: 種目='\(newWorkout.exerciseName ?? "nil")', 重量=\(newWorkout.weight), 回数=\(newWorkout.reps), sessionId=\(sessionId)")
         }
         
         do {
@@ -343,26 +351,36 @@ struct ExerciseDetailView: View {
     
     // 前回記録をデフォルト値として設定
     private func loadPreviousRecordAsDefault() {
-        // 選択日より前の、この種目の最新記録を取得
-        let calendar = Calendar.current
-        
         let fetchRequest: NSFetchRequest<WorkoutEntry> = WorkoutEntry.fetchRequest()
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "exerciseName == %@", exerciseName)
-        ])
+        fetchRequest.predicate = NSPredicate(format: "exerciseName == %@", exerciseName)
         fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: false)]
         fetchRequest.fetchLimit = 1
         
         do {
-            let previousRecords = try viewContext.fetch(fetchRequest)
-            if let lastRecord = previousRecords.first {
-                print("✅ 前回記録を読み込み: \(lastRecord.weight)kg × \(lastRecord.reps)回")
-                // 前回記録をデフォルト値として設定
-                sets = [ExerciseSet(
-                    weight: lastRecord.weight,
-                    reps: Int(lastRecord.reps),
-                    memo: ""
-                )]
+            // 最新の1件を取得してsessionIdを確認
+            let latestRecords = try viewContext.fetch(fetchRequest)
+            
+            if let latestRecord = latestRecords.first, let sessionId = latestRecord.sessionId {
+                print("✅ 前回記録のセッションID: \(sessionId)")
+                
+                // 同じセッションIDの全記録を取得
+                let sessionFetchRequest: NSFetchRequest<WorkoutEntry> = WorkoutEntry.fetchRequest()
+                sessionFetchRequest.predicate = NSPredicate(format: "sessionId == %@", sessionId as CVarArg)
+                sessionFetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)]
+                
+                let sessionRecords = try viewContext.fetch(sessionFetchRequest)
+                print("前回セッションのセット数: \(sessionRecords.count)")
+                
+                // 全セットをデフォルト値として設定
+                sets = sessionRecords.map { workout in
+                    ExerciseSet(
+                        weight: workout.weight,
+                        reps: Int(workout.reps),
+                        memo: workout.memo ?? ""
+                    )
+                }
+                
+                print("✅ 前回記録を全セット読み込み: \(sets.count)セット")
             } else {
                 print("⚠️ 前回記録なし - 空のセットで開始")
                 sets = [ExerciseSet()]
