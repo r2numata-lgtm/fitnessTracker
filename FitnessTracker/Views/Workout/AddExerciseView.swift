@@ -90,9 +90,12 @@ struct AddExerciseView: View {
             return
         }
         
-        // 特殊文字チェック（基本的な日本語、英数字、スペースのみ許可）
-        let allowedCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽゃゅょっァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモヤユヨラリルレロワヲンヴー・（）()【】[]、。・")
-        
+        // 特殊文字チェック（日本語、英数字、基本的な記号のみ許可）
+        let allowedCharacters = CharacterSet.alphanumerics
+            .union(CharacterSet(charactersIn: " 　ー～〜・＝－（）()【】[]、。！!？?"))
+            .union(CharacterSet(charactersIn: "ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわをんゔゕゖゝゞ"))
+            .union(CharacterSet(charactersIn: "ァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモャヤュユョヨラリルレロヮワヰヱヲンヴヵヶヷヸヹヺーヽヾ"))
+
         if trimmedName.rangeOfCharacter(from: allowedCharacters.inverted) != nil {
             alertMessage = "使用できない文字が含まれています"
             showingAlert = true

@@ -54,7 +54,14 @@ struct WorkoutView: View {
                     
                     // 記録リスト
                     List {
-                        ForEach(Array(groupedWorkouts.keys.sorted()), id: \.self) { key in
+                        ForEach(Array(groupedWorkouts.keys.sorted(by: { key1, key2 in
+                            // 各グループの最初の記録の時刻で比較
+                            if let workouts1 = groupedWorkouts[key1]?.first,
+                               let workouts2 = groupedWorkouts[key2]?.first {
+                                return workouts1.date < workouts2.date  // 新しい順（下が最新）
+                            }
+                            return false
+                        })), id: \.self) { key in
                             if let workoutSets = groupedWorkouts[key] {
                                 // キーから種目名を抽出（最初のアンダースコアの前まで）
                                 let exerciseName = key.components(separatedBy: "_").first ?? key
