@@ -287,6 +287,8 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "歩数や消費カロリーなどの健康データを読み取り、より正確なカロリー収支を計算するために使用します。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "筋トレの記録や体重データを健康アプリに保存し、総合的な健康管理をサポートするために使用します。";
 				INFOPLIST_KEY_NSHomeKitUsageDescription = "このアプリは健康データと連携して、より正確なカロリー収支の管理をサポートします。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "筋トレの写真を追加するために必要です";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "筋トレの記録写真を保存するために必要です";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -320,6 +322,8 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "歩数や消費カロリーなどの健康データを読み取り、より正確なカロリー収支を計算するために使用します。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "筋トレの記録や体重データを健康アプリに保存し、総合的な健康管理をサポートするために使用します。";
 				INFOPLIST_KEY_NSHomeKitUsageDescription = "このアプリは健康データと連携して、より正確なカロリー収支の管理をサポートします。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "筋トレの写真を追加するために必要です";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "筋トレの記録写真を保存するために必要です";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

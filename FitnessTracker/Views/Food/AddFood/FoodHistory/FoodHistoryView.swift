@@ -76,7 +76,7 @@ struct FoodHistoryView: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 ForEach(filteredMasters, id: \.id) { master in
-                    FoodMasterRow(master: master) {
+                    FoodMasterDisplayRow(master: master) {  // ← 変更
                         selectedFoodMaster = master
                     }
                 }
@@ -84,7 +84,6 @@ struct FoodHistoryView: View {
             .padding()
         }
     }
-    
     private var emptyView: some View {
         VStack(spacing: 20) {
             Image(systemName: "fork.knife")

@@ -17,42 +17,24 @@ struct GroupedWorkoutRowView: View {
             HStack {
                 Text(exerciseName)
                     .font(.headline)
+                
                 Spacer()
+                
                 Text("\(Int(totalCalories))kcal")
                     .foregroundColor(.orange)
                     .fontWeight(.semibold)
             }
             
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(workoutSets.enumerated()), id: \.offset) { index, workout in
-                    HStack {
-                        Label("\(Int(workout.weight))kg", systemImage: "scalemass")
-                        Label("\(workout.reps)回", systemImage: "number")
-                        if let memo = workout.memo, !memo.isEmpty {
-                            Text("(\(memo))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Text("\(Int(workout.caloriesBurned))kcal")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                }
-                
-                HStack {
-                    Text("合計: \(workoutSets.count)セット")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
+            HStack {
+                Label("合計: \(workoutSets.count)セット", systemImage: "repeat")
             }
+            .font(.caption)
+            .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
     }
     
+    // totalCalories は残す
     private var totalCalories: Double {
         workoutSets.reduce(0) { $0 + $1.caloriesBurned }
     }

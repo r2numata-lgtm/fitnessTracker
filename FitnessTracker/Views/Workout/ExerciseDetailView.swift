@@ -43,14 +43,23 @@ struct ExerciseDetailView: View {
         print("検索範囲: \(startOfDay) 〜 \(endOfDay)")
         print("検索クエリ: exerciseName == '\(exerciseName)'")
         
-        self._existingWorkouts = FetchRequest(
-            sortDescriptors: [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)], // 昇順に変更
-            predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(format: "exerciseName == %@", exerciseName),
-                NSPredicate(format: "date >= %@", startOfDay as NSDate),
-                NSPredicate(format: "date < %@", endOfDay as NSDate)
-            ])
-        )
+        // ← ここを修正: 編集モードの時だけ existingWorkouts を取得
+        if isEditMode {
+            self._existingWorkouts = FetchRequest(
+                sortDescriptors: [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: true)],
+                predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "exerciseName == %@", exerciseName),
+                    NSPredicate(format: "date >= %@", startOfDay as NSDate),
+                    NSPredicate(format: "date < %@", endOfDay as NSDate)
+                ])
+            )
+        } else {
+            // 新規モードの場合は空のFetchRequest
+            self._existingWorkouts = FetchRequest(
+                sortDescriptors: [],
+                predicate: NSPredicate(value: false)  // 何も取得しない
+            )
+        }
         print("================================")
     }
     
@@ -128,58 +137,6 @@ struct ExerciseDetailView: View {
                     }
                 }
                 
-                // デバッグ情報（リリース時は削除）
-                Section(header: Text("デバッグ情報")) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("種目名: '\(exerciseName)'")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("種目名が空?: \(exerciseName.isEmpty ? "Yes" : "No")")
-                            .font(.caption)
-                            .foregroundColor(exerciseName.isEmpty ? .red : .blue)
-                        Text("種目名の長さ: \(exerciseName.count)")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("日付: \(selectedDate, formatter: dateFormatter)")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("既存記録数: \(existingWorkouts.count)")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("読み込み済みセット数: \(sets.count)")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("データ読み込み完了: \(hasLoadedData ? "Yes" : "No")")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("編集モード: \(isEditMode ? "Yes" : "No")")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
-                }
-                
-                // 既存データの詳細表示（デバッグ用）
-                if !existingWorkouts.isEmpty {
-                    Section(header: Text("既存データ詳細")) {
-                        ForEach(Array(existingWorkouts.enumerated()), id: \.offset) { index, workout in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Record \(index + 1)")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                Text("種目: '\(workout.exerciseName ?? "nil")'")
-                                    .font(.caption)
-                                Text("重量: \(workout.weight)kg")
-                                    .font(.caption)
-                                Text("回数: \(workout.reps)回")
-                                    .font(.caption)
-                                Text("日時: \(workout.date)")
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.purple)
-                        }
-                    }
-                }
-                
                 if isEditMode {
                     Section {
                         Button(action: {
@@ -250,38 +207,41 @@ struct ExerciseDetailView: View {
     
     // 既存データの読み込み処理を改善（順番を保持）
     private func loadExistingDataIfNeeded() {
-        guard isEditMode else {
-            print("編集モードではないため、データ読み込みをスキップ")
-            return
-        }
-        
-        print("=== 既存データ読み込み開始 ===")
+        print("=== データ読み込み開始 ===")
         print("種目名: '\(exerciseName)'")
-        print("既存ワークアウト数: \(existingWorkouts.count)")
+        print("編集モード: \(isEditMode)")
         
-        if !existingWorkouts.isEmpty {
-            // 既存のセットデータを読み込み（日時順で並んでいる）
-            var loadedSets: [ExerciseSet] = []
+        if isEditMode {
+            // 編集モード: 既存の記録を読み込む
+            print("既存ワークアウト数: \(existingWorkouts.count)")
             
-            for (index, workout) in existingWorkouts.enumerated() {
-                let set = ExerciseSet(
-                    weight: workout.weight,
-                    reps: Int(workout.reps),
-                    memo: workout.memo ?? ""
-                )
-                loadedSets.append(set)
-                print("読み込みセット[\(index)]: 重量=\(set.weight)kg, 回数=\(set.reps)回, メモ='\(set.memo)', 日時=\(workout.date)")
+            if !existingWorkouts.isEmpty {
+                var loadedSets: [ExerciseSet] = []
+                
+                for (index, workout) in existingWorkouts.enumerated() {
+                    let set = ExerciseSet(
+                        weight: workout.weight,
+                        reps: Int(workout.reps),
+                        memo: workout.memo ?? ""
+                    )
+                    loadedSets.append(set)
+                    print("読み込みセット[\(index)]: 重量=\(set.weight)kg, 回数=\(set.reps)回")
+                }
+                
+                sets = loadedSets
+                print("総セット数: \(sets.count)")
+            } else {
+                print("既存データなし")
+                sets = [ExerciseSet()]
             }
-            
-            sets = loadedSets
-            print("総セット数: \(sets.count)")
         } else {
-            print("既存データなし - 新規セットで開始")
-            sets = [ExerciseSet()]
+            // 新規追加モード: 前回記録をデフォルト値として設定
+            print("新規追加モード: 前回記録を検索中...")
+            loadPreviousRecordAsDefault()
         }
-        print("=== 既存データ読み込み完了 ===")
+        
+        print("=== データ読み込み完了 ===")
     }
-    
     private func calculateTotalCalories() -> Int {
         // MET値による消費カロリー計算
         let metValues: [String: Double] = [
@@ -379,6 +339,38 @@ struct ExerciseDetailView: View {
         
         print("=== 記録削除完了 ===")
         presentationMode.wrappedValue.dismiss()
+    }
+    
+    // 前回記録をデフォルト値として設定
+    private func loadPreviousRecordAsDefault() {
+        // 選択日より前の、この種目の最新記録を取得
+        let calendar = Calendar.current
+        
+        let fetchRequest: NSFetchRequest<WorkoutEntry> = WorkoutEntry.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "exerciseName == %@", exerciseName)
+        ])
+        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \WorkoutEntry.date, ascending: false)]
+        fetchRequest.fetchLimit = 1
+        
+        do {
+            let previousRecords = try viewContext.fetch(fetchRequest)
+            if let lastRecord = previousRecords.first {
+                print("✅ 前回記録を読み込み: \(lastRecord.weight)kg × \(lastRecord.reps)回")
+                // 前回記録をデフォルト値として設定
+                sets = [ExerciseSet(
+                    weight: lastRecord.weight,
+                    reps: Int(lastRecord.reps),
+                    memo: ""
+                )]
+            } else {
+                print("⚠️ 前回記録なし - 空のセットで開始")
+                sets = [ExerciseSet()]
+            }
+        } catch {
+            print("❌ 前回記録取得エラー: \(error)")
+            sets = [ExerciseSet()]
+        }
     }
 }
 

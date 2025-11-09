@@ -63,15 +63,10 @@ struct AllFoodsListView: View {
                         Section(header: mealTypeHeader(mealType)) {
                             ForEach(mealFoods, id: \.id) { food in
                                 Button(action: {
-                                    print("=== ボタンタップ ===")
-                                    print("食材: \(food.foodName)")
-                                    print("コンテキスト同じ？: \(food.managedObjectContext === viewContext)")
                                     selectedFood = food
                                     showingFoodDetail = true
-                                    print("設定後 - selectedFood: \(selectedFood?.foodName ?? "nil")")
-                                    print("設定後 - showingFoodDetail: \(showingFoodDetail)")
                                 }) {
-                                    FoodListRow(food: food)
+                                    SimpleFoodDisplayRow(foodRecord: food)  // ← 変更
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
@@ -254,54 +249,6 @@ struct AllFoodsListView: View {
     }
 }
 
-// MARK: - 食事行コンポーネント
-struct FoodListRow: View {
-    let food: FoodRecord
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // 食材アイコン
-            if let photoData = food.photo,
-               let uiImage = UIImage(data: photoData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 40, height: 40)
-                    
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // 食材情報
-            VStack(alignment: .leading, spacing: 2) {
-                Text(food.foodName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text("\(food.servingMultiplier, specifier: "%.1f")人前")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            // カロリー
-            Text("\(Int(food.actualCalories))kcal")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.orange)
-        }
-        .padding(.vertical, 4)
-    }
-}
 
 #Preview {
     AllFoodsListView(selectedDate: Date())

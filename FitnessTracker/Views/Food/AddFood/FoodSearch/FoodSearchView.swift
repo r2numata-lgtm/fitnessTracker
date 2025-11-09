@@ -131,11 +131,16 @@ struct FoodSearchView: View {
     private var favoriteFoodsList: some View {
         LazyVStack(spacing: 12) {
             ForEach(favoriteFoods, id: \.id) { food in
-                FavoriteFoodRow(
-                    food: food,
-                    onTap: { selectFavoriteFood(food) },
-                    onDelete: { deleteFavoriteFood(food) }
-                )
+                FavoriteFoodDisplayRow(food: food) {
+                    selectFavoriteFood(food)
+                }
+                .contextMenu {
+                    Button(role: .destructive) {
+                        deleteFavoriteFood(food)
+                    } label: {
+                        Label("削除", systemImage: "trash")
+                    }
+                }
             }
         }
         .padding(.horizontal)
@@ -175,7 +180,7 @@ struct FoodSearchView: View {
     
     private var searchResultsList: some View {
         ForEach(searchResults, id: \.id) { result in
-            FoodSearchResultRow(result: result) {
+            SearchResultRow(result: result) {
                 selectedFoodResult = result
             }
         }

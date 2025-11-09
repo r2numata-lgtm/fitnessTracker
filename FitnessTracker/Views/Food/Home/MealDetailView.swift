@@ -94,11 +94,11 @@ struct MealDetailView: View {
     private var foodListSection: some View {
         Section {
             ForEach(foods) { food in
-                Button {
+                Button(action: {
                     selectedFood = food
                     showingFoodDetail = true
-                } label: {
-                    FoodListRow(food: food)
+                }) {
+                    SimpleFoodDisplayRow(foodRecord: food)  // ← 変更
                 }
                 .buttonStyle(PlainButtonStyle())
             }
